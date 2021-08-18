@@ -1,0 +1,182 @@
+---
+title: "DeconfoundedGroupDifference_Tutorial"
+author: "Benjamin Risk"
+date: "8/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Set up random seed and multicore
+```{r}
+options(mc.cores=8)
+getOption("mc.cores")
+seed = 123
+set.seed(seed, "L'Ecuyer-CMRG")
+```
+
+## Simulate data
+
+Here, we will create a variable X1 that will be driving the confounding between usability and functional connectivity. The idea is to create a variable similar to a measure of ASD severity. It is equal to zero when A=0 and is log normal when A=1. We also create some additional covariates to make the estimation a little harder. In this example, there is bias in the ASD functional connectivity but not in the TD. 
+
+We create a huge dataset that is used to calculate $E^*[Y(1)|A=0]$ and $E^*[Y(1)|A=1]$, then we also create a sample from this "population" that is then used to estimate $E[E[Y|\Delta=1,A=0,W]|A=0]$ and $E[E[Y|\Delta=1,A=1,W]|A=1]$. 
+
+```{r simdata1}
+p=10 # number of covariates
+n1 = 100000 # number of observations to obtain the "true" functional connectivity; needs to be large
+n2 = 550 # number of observations in the "sample"; n2<=n1
+
+A = rbinom(n1,1,0.25) # diagnosis
+
+X1 = A*exp(rnorm(n1,sd=0.4)+2) # equal to 0 for A=0, log normal for A=1
+#hist(X1)
+W = cbind(X1,matrix(rnorm(n1*(p-1)),nrow=n1))
+
+gn.true = plogis(2-0.2*X1) # intercept: exp(beta0)/(1+exp(beta0)) is the proportion of A=0 usable
+
+quantile(gn.true,0.025) # note: helps to choose parameters so that this is not too close to 0 or 1
+quantile(gn.true,0.975)
+Delta = rbinom(n=n1,size=1,prob = gn.true)
+min(gn.true[Delta==1])
+
+# Usable in ASD:
+mean(Delta[A==1])
+# Usable in TD:
+mean(Delta[A==0])
+
+# check the difference in mean of X1 in all data versus usable.
+# This will influence the degree of confounding:
+mean(X1[A==1])
+mean(X1[A==1 & Delta==1])
+
+# Simulate functional connectivity:
+# In this set up, conditional effect of asd positive, but marginal negative:
+betas_Qbar = c(-0.2,rep(0,p-1),1.4) 
+xmat=cbind(W,A)
+Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)
+
+# Calculate the "true" ASD fconn and "true" TD:
+(ASD.true = mean(Y[A==1]))
+(TD.true = mean(Y[A==0]))
+
+# These are the biased means resulting from confounding with usability:
+mean(Y[A==1 & Delta==1])
+mean(Y[A==0 & Delta==1])
+
+sample.i = sample(n1,n2,replace=FALSE)
+Y.sample = Y[sample.i]
+Delta.sample = Delta[sample.i]
+A.sample = A[sample.i]
+W.sample = W[sample.i,]
+
+
+# the best estimate of deconfounded group difference we can expect given limited sample size:
+# this reflects sampling variability
+mean(Y.sample[A.sample==1])
+mean(Y.sample[A.sample==0])
+
+```
+
+## Fit propensity model using superlearner:
+```{r, echo=FALSE, message=FALSE}
+library(drtmle)
+library(SuperLearner)
+library(earth)
+library(quadprog)
+library(gam)
+library(nloptr)
+library(future)
+library(future.apply)
+library(xgboost)
+library(ranger)
+library(visdat)
+library(ggplot2)
+library(gridExtra)
+library(tidyr)
+library(e1071)
+library(glmnet)
+```
+
+Estimate propensities (gn) using all data:
+
+```{r message=FALSE}
+my.SL.libs = c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridge","SL.step","SL.step.interaction","SL.svm","SL.xgboost","SL.mean")
+
+(gn.est = mcSuperLearner(Y = Delta.sample, X = data.frame(cbind(W.sample,A.sample)), family=binomial(link='logit'),SL.library = my.SL.libs, cvControl = list(V = 10), method='method.AUC')) # 10-fold CV
+
+cor(gn.est$SL.predict,gn.true[sample.i])
+```
+
+It's okay that you get warnings for ridge (which is not set up for logistic regression) and for support vector machines. The other learners should run without warning. 
+
+## Fit outcome model using superlearner:
+Estimate outcome model using usable data. Note: drtlme::tmp_method.CC_LS adjusts the tolerances as recommended by Dr. @benkbios:
+
+```{r}
+(Qbar.est =   mcSuperLearner(Y = Y.sample[Delta.sample==1], X=data.frame(cbind(W.sample,A.sample)[Delta.sample==1,]), family=gaussian(), SL.library = my.SL.libs, cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS))
+```      
+
+Predict outcome for all usable and unusable data:
+```{r}
+Qbar.predict = predict(Qbar.est, newdata = data.frame(cbind(W.sample,A.sample)))[[1]]
+cor(Y.sample,Qbar.predict)
+```
+
+## Estimate the deconfounded group difference:
+
+```{r}
+# ASD:
+mean_fconn_asd.SL <- drtmle(Y = Y.sample[A.sample==1],
+                              A = Delta.sample[A.sample==1], # apologies for the notation conflict -- use Delta here
+                              W = NULL, # does not do anything with user-input propensities and outcomes
+                              a_0 = 1, # set this to one to correspond to Delta=1
+                              Qn = list(Qbar.predict[A.sample==1]), # pass in fitted outcome values
+                              gn = list(gn.est$SL.predict[A.sample==1]), # pass in fitted propensities
+                              SL_Qr = "SL.npreg", # uses non-parametric regression in the drtmle step
+                              SL_gr = "SL.npreg",
+                              maxIter = 1
+                            )
+
+# TD:
+mean_fconn_td.SL <- drtmle(Y = Y.sample[A.sample==0],
+                              A = Delta.sample[A.sample==0], 
+                              W = NULL, 
+                              a_0 = 1, 
+                              Qn = list(Qbar.predict[A.sample==0]),
+                              gn = list(gn.est$SL.predict[A.sample==0]), 
+                              SL_Qr = "SL.npreg",
+                              SL_gr = "SL.npreg",
+                              maxIter = 1
+                            )
+
+deconfounded.diff = mean_fconn_asd.SL[[1]]$est - mean_fconn_td.SL[[1]]$est
+
+# test the difference between groups:
+z.deconfounded.diff = deconfounded.diff/sqrt(mean_fconn_asd.SL[[1]]$cov+mean_fconn_td.SL[[1]]$cov)
+```
+
+## Compare the true difference, deconfounded difference, and the naive approach:
+
+```{r}
+
+ASD.true - TD.true
+
+# the best we can expect given limited sample size:
+mean(Y.sample[A.sample==1])-mean(Y.sample[A.sample==0])
+
+# our estimate:
+deconfounded.diff
+
+# naive estimate:
+(naive.diff = mean(Y.sample[A.sample==1 & Delta.sample==1]) - mean(Y.sample[A.sample==0 & Delta.sample==1]))
+
+# hypothesis testing:
+# h_0: no difference between asd and td
+z.deconfounded.diff
+2*(1-pnorm(abs(z.deconfounded.diff)))
+
+t.test(Y.sample[A.sample==1 & Delta.sample==1],Y.sample[A.sample==0 & Delta.sample==1])
+
+```
