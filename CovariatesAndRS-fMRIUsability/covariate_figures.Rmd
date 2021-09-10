@@ -1,0 +1,199 @@
+---
+title: "Figures exploring covariates and rs-fMRI usability"
+author: "Liwei Wang and MB Nebel"
+date: "9/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+```
+
+##Load Data
+```{r}
+load('Data/DataWithPropensities_seed1.RData')
+
+```
+
+#####Define geom_split_violin()
+```{r}
+GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, draw_group = function(self, data, ..., draw_quantiles = NULL){
+  data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
+  grp <- data[1,'group']
+  newdata <- plyr::arrange(transform(data, x = if(grp%%2==1) xminv else xmaxv), if(grp%%2==1) y else -y)
+  newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+  newdata[c(1,nrow(newdata)-1,nrow(newdata)), 'x'] <- round(newdata[1, 'x']) 
+  if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+    stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <= 
+                                              1))
+    quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
+    aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+    aesthetics$alpha <- rep(1, nrow(quantiles))
+    both <- cbind(quantiles, aesthetics)
+    quantile_grob <- GeomPath$draw_panel(both, ...)
+    ggplot2:::ggname("geom_split_violin", grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+  }
+  else {
+    ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+  }
+})
+
+geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", position = "identity", ..., draw_quantiles = NULL, trim = TRUE, scale = "area", na.rm = FALSE, show.legend = NA, inherit.aes = TRUE) {
+  layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, position = position, show.legend = show.legend, inherit.aes = inherit.aes, params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, na.rm = na.rm, ...))
+}
+```
+
+#####Reshape data to combine motion QC levels
+```{r}
+#create dummy factor to include all subjects
+dat3$noExclusion <- ifelse(dat3$ID>0, "Pass", "Pass")
+dat3$noExclusion <- factor(dat3$noExclusion)
+
+#convert KKI_criteria to factor level "Pass"
+dat3$KKI_criteria <- factor(dat3$KKI_criteria, levels=c("Pass", "Fail"))
+
+#convert Ciric_length to factor with reference level "Pass" to match KKI_criteria
+dat3$Ciric_length <- factor(dat3$Ciric_length, levels=c("Pass", "Fail"))
+
+#combine Ciric_length, KKI, and noExclusion exclusion into one variable
+allVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan", "Ciric_length", "KKI_criteria", "noExclusion", "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw",  "ADOS.Comparable.Total", "CurrentlyOnStimulants", "HeadCoil", "Sex", "Diagnosis4Levels", "SES.Family")
+
+idVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan","PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw", "ADOS.Comparable.Total", 
+                "CurrentlyOnStimulants", "HeadCoil", "Sex", "Diagnosis4Levels", "SES.Family")
+
+qcMelt <- reshape2::melt(dat3[, allVariables],
+                         id.vars=names(dat3)[which(names(dat3) %in%  idVariables)], 
+                         variable.name = "Motion.Exclusion.Level",
+                         value.name = "Included")
+
+levels(qcMelt$Motion.Exclusion.Level)
+
+#rename exclusion levels
+levels(qcMelt$Motion.Exclusion.Level) <- c("Strict", "Lenient", "None")
+
+str(qcMelt$Included)
+#convert Included to factor with pass as reference
+qcMelt$Included <- factor(qcMelt$Included, levels=c("Pass", "Fail"))
+
+#rename levels
+levels(qcMelt$Included) <- c("Included", "Excluded")
+
+#convert PrimaryDiagnosis to factor
+qcMelt$PrimaryDiagnosis <- factor(qcMelt$PrimaryDiagnosis, levels = c("Autism", "None"))
+levels(qcMelt$PrimaryDiagnosis)
+
+qcMelt$PrimaryDiagnosis <- relevel(qcMelt$PrimaryDiagnosis, "None")
+levels(qcMelt$PrimaryDiagnosis) = c("TD", "ASD")
+
+with(qcMelt, table(PrimaryDiagnosis, Motion.Exclusion.Level, Included))
+
+```
+
+###Set the format of x,y axis and title
+```{r}
+My_Theme_prop = theme_light()+theme(
+  legend.title =element_blank(),
+  axis.title.x = element_text(size = 9),
+  axis.title.y = element_text(size = 9),
+  plot.title = element_text(size = 30),
+  axis.text.x = element_text(size = 6),
+  axis.text.y = element_text(size = 8),
+  strip.text.x = element_text(size = 10,color="black"),
+  strip.background = element_rect(fill="white"))
+
+```
+
+######proportion excluded by Dx
+```{r}
+motion <- filter(qcMelt, Motion.Exclusion.Level!="None")
+motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
+#motion$Motion.Exclusion.Level <- forcats::fct_rev(motion$Motion.Exclusion.Level)
+
+levels(motion$PrimaryDiagnosis)
+
+motion <- group_by(motion, PrimaryDiagnosis, Motion.Exclusion.Level, Included)
+
+dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
+  geom_bar(position = "fill", alpha = .6)+
+  facet_grid(~Motion.Exclusion.Level)+
+  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
+  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
+  My_Theme_prop+theme(legend.title =element_blank())+
+  theme(legend.title = element_blank())+
+  ylab("Proportion of Children")+
+  xlab("Diagnosis Group")+
+  theme(legend.position = "none")
+
+#dev.off()
+```
+
+####Currently on stimulants in ASD group that were excluded
+```{r}
+#motion$Motion.Exclusion.Level <- forcats::fct_rev(motion$Motion.Exclusion.Level)
+
+stim <- filter(motion, PrimaryDiagnosis=="ASD")
+stim$PrimaryDiagnosis <- droplevels(stim$PrimaryDiagnosis)
+stim$CurrentlyOnStimulants <- factor(stim$CurrentlyOnStimulants)
+levels(stim$CurrentlyOnStimulants)
+
+levels(stim$CurrentlyOnStimulants) = c("No", "Yes")
+
+stim <- filter(stim, !is.na(CurrentlyOnStimulants))
+
+stim_proportions <- ggplot(stim, aes(x = CurrentlyOnStimulants, fill = Included))+
+  geom_bar(position = "fill", alpha = .6)+
+  facet_grid(~Motion.Exclusion.Level)+
+  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
+  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
+  My_Theme_prop+
+  xlab("Currently On Stimulants?")+
+  theme(legend.title = element_blank())+
+  #theme(legend.position="top")+
+  theme(legend.text = element_text(size=7))+
+  ylab("Proportion of Autistic Children")+
+  theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
+  theme(legend.key.size=unit(.1, "in"))+
+  theme(legend.position = "none")
+  #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
+
+#dev.off()
+```
+
+####Secondary ADHD diagnosis in ASD group that were excluded
+```{r}
+#motion$Motion.Exclusion.Level <- forcats::fct_rev(motion$Motion.Exclusion.Level)
+comorbid <- filter(motion, PrimaryDiagnosis=="ASD")
+comorbid$PrimaryDiagnosis <- droplevels(comorbid$PrimaryDiagnosis)
+comorbid$Diagnosis4Levels <- droplevels(comorbid$Diagnosis4Levels)
+levels(comorbid$Diagnosis4Levels)
+
+comorbid <- filter(comorbid, !is.na(Diagnosis4Levels))
+
+comorbid_proportions <- ggplot(comorbid, aes(x = Diagnosis4Levels, fill = Included))+
+  geom_bar(position = "fill", alpha = .6)+
+  facet_grid(~Motion.Exclusion.Level)+
+  #labs(title='Proportion of Scans Included/Excluded by Diagnosis')+
+  scale_x_discrete(labels = c("No", "Yes"))+
+  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
+  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
+  My_Theme_prop+theme(legend.title =element_blank())+
+  xlab("Comorbid ADHD?")+
+  theme(legend.title = element_blank())+
+  #theme(legend.position="top")+
+  theme(legend.text = element_text(size=7))+
+  ylab("Proportion of Autistic Children")+
+  theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
+  theme(legend.key.size=unit(.1, "in"))+
+  theme(legend.position = "none")
+  #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
+
+prop_legend = get_legend(comorbid_proportions + guides(color = guide_legend(ncol = 1))+theme(legend.position = "right", legend.text = element_text(size = 9),   legend.key.size=unit(.1, "in")))
+
+#dev.off()
+```
