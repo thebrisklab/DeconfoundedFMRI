@@ -654,7 +654,7 @@ nested_gams <- nested_gams %>%
 
 ```
 
-#ADOS
+##Probability of exclusion as a function of ADOS
 ```{r}
 ados <- nested_gams %>% 
   filter(variable=="ADOS") %>% 
@@ -674,7 +674,7 @@ p_ados <- ggplot(ados, aes(x=range, y=fit))+
 
 ```
 
-#SRS
+##Probability of exclusion as a function of SRS
 ```{r}
 srs <- nested_gams %>% 
   filter(variable=="SRS") %>% 
@@ -695,7 +695,7 @@ p_srs <- ggplot(srs, aes(x=range, y=fit))+
 
 ```
 
-#Inattention
+##Probability of exclusion as a function of Inattention
 ```{r}
 ina <- nested_gams %>% 
   filter(variable=="Inattention") %>% 
@@ -716,7 +716,7 @@ p_in <- ggplot(ina, aes(x=range, y=fit))+
 
 ```
 
-#Hyperactivity
+##Probability of exclusion as a function of Hyperactivity
 ```{r}
 hi <- nested_gams %>% 
   filter(variable=="Hyperactivity") %>% 
@@ -736,7 +736,7 @@ theme(plot.title = element_text(size = 11, hjust = 0.5))+
   theme(axis.title.y = element_blank())
 ```
 
-##Motor Overflow
+##Probability of exclusion as a function of Motor Overflow
 ```{r}
 mo <- nested_gams %>% 
   filter(variable=="Motor Overflow") %>% 
@@ -756,7 +756,7 @@ p_mo <- ggplot(mo, aes(x=range, y=fit))+
   theme(axis.title.y = element_blank())
 ```
 
-##Age
+##Probability of exclusion as a function of Age
 ```{r}
 age<- nested_gams %>% 
   filter(variable=="Age") %>% 
@@ -776,7 +776,7 @@ p_age <- ggplot(age, aes(x=range, y=fit))+
   theme(axis.title.y = element_blank())
 ```
 
-##GAI
+##Probability of exclusion as a function of GAI
 ```{r}
 gai <- nested_gams %>% 
   filter(variable=="GAI") %>% 
@@ -814,6 +814,7 @@ den_theme = theme(
 
 ```
 
+##ADOS density
 ```{r}
 ddata <- nested_gams %>% 
   filter(variable=="ADOS") %>% 
@@ -979,6 +980,7 @@ hist_legend = cowplot::get_legend(d_gai + guides(color = guide_legend(nrow = 1))
 
 ```
 
+#combine gam plots with densities & print
 ```{r}
 
 top_row <- cowplot::plot_grid(p_ados, p_srs, p_in, p_hi, p_mo, p_age, p_gai, ncol=7, rel_widths=c(1.18/7, .97/7, .97/7, .97/7, .97/7, .97/7, .97/7))
@@ -993,6 +995,7 @@ cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=
 dev.off()
 
 ```
+NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for deconfounded group difference)
 
 ```{r}
 startEdgeidx = which(names(dat3)=='r.ic1.ic2')
@@ -1008,6 +1011,7 @@ fcMelt <- reshape2::melt(dat2[,1:160],
 
 ```
 
+##Edgewise functional connectivity as a function of the behavioral covariates
 ```{r}
 fctib <- tibble(filter(fcMelt, Motion.Exclusion.Level!="None"))
 fctib$Motion.Exclusion.Level <- droplevels(fctib$Motion.Exclusion.Level)
