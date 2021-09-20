@@ -10,6 +10,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r message=FALSE, warning=FALSE}
+#for flowchart
+library(DiagrammeR)
+library(Gmisc)
+library(grid)
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
@@ -57,13 +61,11 @@ geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", p
 }
 ```
 
+
 ####Load Data
 ```{r}
 #load('Data/DataWithPropensities_seed1.RData')
 load('~/Dropbox/QualityControlImpactsFMRI/Data/DataWithPropensities_seed1.RData')
-
-#limit to complete predictor cases
-dat3 <- filter(dat3, CompletePredictorCases==1)
 
 #convert PrimaryDiagnosis to factor
 dat3$PrimaryDiagnosis <- factor(dat3$PrimaryDiagnosis, levels = c("Autism", "None"))
@@ -72,14 +74,7 @@ levels(dat3$PrimaryDiagnosis)
 dat3$PrimaryDiagnosis <- relevel(dat3$PrimaryDiagnosis, "None")
 levels(dat3$PrimaryDiagnosis) = c("TD", "ASD")
 
-#convert Diagnosis4Levels to factor
-dat3$Diagnosis4Levels <- factor(dat3$Diagnosis4Levels, levels = c("Autism", "Autism+ADHD", "None"))
-table(dat3$Diagnosis4Levels)
-table(dat3$ADHD_Secondary)
-
 ```
-
-49 Autism + 353 None = 102 ADHD_Secondary=0
 
 ####Reshape data to combine motion QC levels
 ```{r, tidy=TRUE}
@@ -98,15 +93,15 @@ allVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan", "Ciric_length", "KKI_cri
                  "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", 
                  "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw",  "ADOS.Comparable.Total", 
                  "CurrentlyOnStimulants", "HeadCoil", "Sex", 
-                 "Diagnosis4Levels", "SES.Family", 
-                 "Race2", "handedness")
+                 "Diagnosis4Levels", "ADHD_Secondary", "SES.Family", 
+                 "Race2", "handedness", "CompletePredictorCases", "YearOfScan", "MeanFramewiseDisplacement.KKI")
 
 idVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan",
                 "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", 
                 "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw", "ADOS.Comparable.Total", 
                 "CurrentlyOnStimulants", "HeadCoil", "Sex", 
-                "Diagnosis4Levels", "SES.Family", 
-                "Race2", "handedness")
+                "Diagnosis4Levels", "ADHD_Secondary", "SES.Family", 
+                "Race2", "handedness", "CompletePredictorCases", "YearOfScan", "MeanFramewiseDisplacement.KKI")
 
 qcMelt <- reshape2::melt(dat3[, allVariables],
                          id.vars=names(dat3)[which(names(dat3) %in%  idVariables)], 
@@ -125,11 +120,143 @@ levels(qcMelt$Included) <- c("Included", "Excluded")
 
 with(qcMelt, table(PrimaryDiagnosis, Motion.Exclusion.Level, Included))
 
+qcMelt$Diagnosis4Levels <- factor(qcMelt$Diagnosis4Levels)
+
 ```
 
+###Create exclusion flowchart
+```{r, echo=FALSE, dev='png'}
+#total number of scans attempted
+nAttempted <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="None") %>% 
+  nrow()
+
+nAttemptedASD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="None" & PrimaryDiagnosis=="ASD") %>% 
+  nrow()
+
+nAttemptedTD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="None" & PrimaryDiagnosis=="TD") %>% 
+  nrow()
+
+qcMelt <- filter(qcMelt, CompletePredictorCases==1)
+
+nCompleteCases <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>%
+  nrow()
+
+nCompleteCasesASD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  filter(PrimaryDiagnosis=="ASD") %>% 
+  nrow()
+
+nCompleteCasesTD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  filter(PrimaryDiagnosis=="TD") %>% 
+  nrow()
+
+#number of scans completed
+nCompleteScans <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient" & !is.na(MeanFramewiseDisplacement.KKI)) %>% 
+  nrow()
+
+#number of scans aborted due to participant non-compliance
+nAbort = nCompleteCases - nCompleteScans
+
+#number of usable scans using Lenient QC
+nLenient <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient" & Included=="Included") %>% 
+  nrow()
+
+nLenientFail <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient" & Included=="Excluded") %>% 
+  nrow()
+
+nLenientASD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient" & Included=="Included", PrimaryDiagnosis=="ASD") %>% 
+  nrow()
+
+nLenientFailASD = nCompleteCasesASD-nLenientASD
+
+nLenientTD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Lenient" & Included=="Included", PrimaryDiagnosis=="TD") %>% 
+  nrow()
+
+nLenientFailTD = nCompleteCasesTD-nLenientTD
+
+#number of usable scans using Strict QC
+nStrict <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Strict" & Included=="Included") %>% 
+  nrow()
+
+nStrictFail <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Strict" & Included=="Excluded") %>% 
+  nrow()
+
+nStrictASD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Strict" & Included=="Included", PrimaryDiagnosis=="ASD") %>% 
+  nrow()
+
+nStrictFailASD = nCompleteCasesASD-nStrictASD
+
+nStrictTD <- qcMelt %>% 
+  filter(Motion.Exclusion.Level=="Strict" & Included=="Included", PrimaryDiagnosis=="TD") %>% 
+  nrow()
+
+nStrictFailTD = nCompleteCasesTD-nStrictTD
+
+#check that all scans that passed strict also passed moderate
+nPassStrictNotLenient = length(dat3$Ciric_length[dat3$Ciric_length=="Pass" & dat3$KKI_criteria=="Fail"])
+
+grViz("digraph flowchart {
+      graph [layout = dot, rankdir = LR]
+      # node definitions with substituted label text
+      node [fontname = Helvetica, shape = rectangle, style = rounded, fontsize = 18, fixedsize = TRUE, width = 3, height = 1]    
+#attempted
+      tab1 [label = '@@1']
+#completed predictor info
+      tab2 [label = '@@2']
+#pass lenient
+      tab3 [label = '@@3']
+#pass strict
+      tab4 [label = '@@5']
+      
+      # edge definitions with the node IDs
+#attempted -> all covariates collected
+      tab1 -> tab2
+#all covariates collected -> passed lenient QC
+      tab2 -> tab3 [fontname = Helvetica, fontsize = 18, fontcolor = LightSlateGray, label = '@@4'];
+#all covariates collected -> passed strict QC
+      tab2 -> tab4 [fontname = Helvetica, fontsize = 18, fontcolor = LightSlateGray, label = '@@6'];
+      }
+      
+      [1]: paste0('Scans Attempted', '\\n', 'n = ', nAttempted, '\\n', nAttemptedASD, ' ASD, ' , nAttemptedTD, ' TD')
+      [2]: paste0('Complete Predictor Cases', '\\n', 'n = ', nCompleteCases, '\\n', nCompleteCasesASD, ' ASD, ' , nCompleteCasesTD, ' TD')
+      [3]: paste0('Passed Lenient QC', '\\n', 'n = ', nLenient, '\\n', nLenientASD, ' ASD, ' , nLenientTD, ' TD')
+      [4]: paste0('Failed Lenient QC', '\\n', 'n = ', nLenientFail)
+      [5]: paste0('Passed Strict QC', '\\n',  'n = ', nStrict, '\\n', nStrictASD, ' ASD, ' , nStrictTD, ' TD')
+      [6]: paste0('Failed Strict QC', '\\n', 'n = ', nStrictFail)
+      ")
+
+
+```
+
+####Check consistency of Diagnosis variables
+```{r}
+#limit to complete predictor cases
+dat3 <- filter(dat3, CompletePredictorCases==1)
+
+#convert Diagnosis4Levels to factor
+dat3$Diagnosis4Levels <- factor(dat3$Diagnosis4Levels, levels = c("Autism", "Autism+ADHD", "None"))
+table(dat3$Diagnosis4Levels)
+table(dat3$ADHD_Secondary)
+
+```
+
+49 Autism + 353 None = 402 ADHD_Secondary=0
 ###Summarize sociodemographic info for paper
 ```{r,  results="asis"}
-qcMelt$Motion.Exclusion.Level <- relevel(qcMelt$Motion.Exclusion.Level, "None")
+levels(qcMelt$Motion.Exclusion.Level) = c("None", "Lenient", "Strict")
 tabN<- tableby(PrimaryDiagnosis~Motion.Exclusion.Level, data=filter(qcMelt, Included=="Included"))
 
 summary(tabN,  
@@ -247,7 +374,7 @@ My_Theme_prop = theme_light()+theme(
 
 ####Proportion excluded by Dx
 ```{r, tidy=TRUE}
-qcMelt$Motion.Exclusion.Level <- relevel(qcMelt$Motion.Exclusion.Level, "Strict")
+levels(qcMelt$Motion.Exclusion.Level) <- c("Strict", "Lenient", "None")
 
 motion <- filter(qcMelt, Motion.Exclusion.Level!="None")
 motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
@@ -990,9 +1117,9 @@ png("Figures/fig_probExclusion_allGAM_TD_ASD_cc.png",width=10,height=6,units="in
 cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=6, rel_heights=c(.1, 1, -.07, .5, -.07, .1))
 dev.off()
 
-png("~/Dropbox/Apps/Overleaf/MotionSelectionBias_rsfMRI/Figures/fig_probExclusion_allGAM_TD_ASD_cc.png",width=10,height=6,units="in",res=200)
+#png("~/Dropbox/Apps/Overleaf/MotionSelectionBias_rsfMRI/Figures/fig_probExclusion_allGAM_TD_ASD_cc.png",width=10,height=6,units="in",res=200)
 cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=6, rel_heights=c(.1, 1, -.07, .5, -.07, .1))
-dev.off()
+#dev.off()
 
 ```
 NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for deconfounded group difference)
