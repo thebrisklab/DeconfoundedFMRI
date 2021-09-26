@@ -12,8 +12,11 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r message=FALSE, warning=FALSE}
 #for flowchart
 library(DiagrammeR)
-library(Gmisc)
+#to export flowchart as .png
+library(DiagrammeRsvg)
+library(rsvg)
 library(grid)
+library(magrittr)
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
@@ -64,8 +67,7 @@ geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", p
 
 ####Load Data
 ```{r}
-#load('Data/DataWithPropensities_seed1.RData')
-load('~/Dropbox/QualityControlImpactsFMRI/Data/DataWithPropensities_seed1.RData')
+load('Data/DataWithPropensities_seed1.RData')
 
 #convert PrimaryDiagnosis to factor
 dat3$PrimaryDiagnosis <- factor(dat3$PrimaryDiagnosis, levels = c("Autism", "None"))
@@ -208,7 +210,7 @@ nStrictFailTD = nCompleteCasesTD-nStrictTD
 #check that all scans that passed strict also passed moderate
 nPassStrictNotLenient = length(dat3$Ciric_length[dat3$Ciric_length=="Pass" & dat3$KKI_criteria=="Fail"])
 
-grViz("digraph flowchart {
+graph <- grViz("digraph flowchart {
       graph [layout = dot, rankdir = LR]
       # node definitions with substituted label text
       node [fontname = Helvetica, shape = rectangle, style = rounded, fontsize = 18, fixedsize = TRUE, width = 3, height = 1]    
@@ -230,7 +232,7 @@ grViz("digraph flowchart {
       tab2 -> tab4 [fontname = Helvetica, fontsize = 18, fontcolor = LightSlateGray, label = '@@6'];
       }
       
-      [1]: paste0('Scans Attempted', '\\n', 'n = ', nAttempted, '\\n', nAttemptedASD, ' ASD, ' , nAttemptedTD, ' TD')
+      [1]: paste0('Participants Scanned', '\\n', 'n = ', nAttempted, '\\n', nAttemptedASD, ' ASD, ' , nAttemptedTD, ' TD')
       [2]: paste0('Complete Predictor Cases', '\\n', 'n = ', nCompleteCases, '\\n', nCompleteCasesASD, ' ASD, ' , nCompleteCasesTD, ' TD')
       [3]: paste0('Passed Lenient QC', '\\n', 'n = ', nLenient, '\\n', nLenientASD, ' ASD, ' , nLenientTD, ' TD')
       [4]: paste0('Failed Lenient QC', '\\n', 'n = ', nLenientFail)
@@ -238,6 +240,9 @@ grViz("digraph flowchart {
       [6]: paste0('Failed Strict QC', '\\n', 'n = ', nStrictFail)
       ")
 
+graph %>% export_svg() %>% 
+  charToRaw() %>% 
+  rsvg_png("Figures/exclusionFlowChart.png", width = 576)
 
 ```
 
@@ -254,6 +259,7 @@ table(dat3$ADHD_Secondary)
 ```
 
 49 Autism + 353 None = 402 ADHD_Secondary=0
+
 ###Summarize sociodemographic info for paper
 ```{r,  results="asis"}
 levels(qcMelt$Motion.Exclusion.Level) = c("None", "Lenient", "Strict")
@@ -268,59 +274,34 @@ summary(tabN,
 ```{r, results="asis"}
 qcMelt$Sex <- relevel(as.factor(qcMelt$Sex), "M")
 
-none<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
+tabSex<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
 
-len<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="Lenient"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-str<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="Strict"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-summary(none, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="None")
-summary(len, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Lenient")
-summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Strict")
+summary(tabSex)
 
 ```
 
 
 ###Age
 ```{r, results="asis"}
-none<- tableby( PrimaryDiagnosis~AgeAtScan, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
+tabAge<- tableby( PrimaryDiagnosis~AgeAtScan, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
 
-len<- tableby( PrimaryDiagnosis~AgeAtScan, data=filter(qcMelt, Motion.Exclusion.Level=="Lenient"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-str<- tableby( PrimaryDiagnosis~AgeAtScan, data=filter(qcMelt, Motion.Exclusion.Level=="Strict"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-summary(none, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="None")
-summary(len, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Lenient")
-summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Strict")
+tab12 <- merge(tabSex, tabAge)
 
 ```
 
 ###Race
 ```{r, results="asis"}
-none<- tableby( PrimaryDiagnosis~Race2, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe"))
+tabRace<- tableby( PrimaryDiagnosis~Race2, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe"))
 
-len<- tableby( PrimaryDiagnosis~Race2, data=filter(qcMelt, Motion.Exclusion.Level=="Lenient"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe"))
-
-str<- tableby( PrimaryDiagnosis~Race2, data=filter(qcMelt, Motion.Exclusion.Level=="Strict"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe"))
-
-summary(none, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="None")
-summary(len, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Lenient")
-summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Strict")
+tab123 <- merge(tab12, tabRace)
 
 ```
 
 ###SES
 ```{r, results="asis"}
-none<- tableby( PrimaryDiagnosis~SES.Family, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
+tabSES<- tableby( PrimaryDiagnosis~SES.Family, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
 
-len<- tableby( PrimaryDiagnosis~SES.Family, data=filter(qcMelt, Motion.Exclusion.Level=="Lenient"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-str<- tableby( PrimaryDiagnosis~SES.Family, data=filter(qcMelt, Motion.Exclusion.Level=="Strict"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-summary(none, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="None")
-summary(len, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Lenient")
-summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Strict")
-
+tab1234 <- merge(tab123, tabSES)
 ```
 
 ###handedness
@@ -328,15 +309,9 @@ summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE
 qcMelt$handedness <- factor(qcMelt$handedness)
 qcMelt$handedness <- relevel(qcMelt$handedness, "Right")
 
-none<- tableby( PrimaryDiagnosis~handedness, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
+tabHand<- tableby( PrimaryDiagnosis~handedness, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
 
-len<- tableby( PrimaryDiagnosis~handedness, data=filter(qcMelt, Motion.Exclusion.Level=="Lenient"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-str<- tableby( PrimaryDiagnosis~handedness, data=filter(qcMelt, Motion.Exclusion.Level=="Strict"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-summary(none, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="None")
-summary(len, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Lenient")
-summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Strict")
+tab12345 <- merge(tab1234, tabHand)
 
 ```
 
@@ -344,18 +319,13 @@ summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE
 ```{r, results="asis"}
 qcMelt$CurrentlyOnStimulants <- factor(qcMelt$CurrentlyOnStimulants)
 
-none<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
+tabStim<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
 
-len<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(qcMelt, Motion.Exclusion.Level=="Lenient"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
 
-str<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(qcMelt, Motion.Exclusion.Level=="Strict"& Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-summary(none, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="None", test=FALSE)
-summary(len, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Lenient", test=FALSE)
-summary(str, digits=2, digits.p=4,digits.pct=1,text=NULL,  numeric.simplify=TRUE, total=FALSE, title="Strict", test=FALSE)
+tab123456 <- merge(tab12345, tabStim)
+summary(tab123456)
 
 ```
-
 
 ###Proportion of children excluded
 ```{r, results='hide'}
