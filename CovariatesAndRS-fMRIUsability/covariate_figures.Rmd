@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #for flowchart
 library(DiagrammeR)
 #to export flowchart as .png
+webshot::install_phantomjs()
 library(DiagrammeRsvg)
 library(rsvg)
 library(grid)
@@ -245,7 +246,7 @@ graph %>% export_svg() %>%
   rsvg_png("Figures/exclusionFlowChart.png", width = 1500)
 
 ```
-
+NOTE: still exports .png despite this message
 ####Check consistency of Diagnosis variables
 ```{r}
 #limit to complete predictor cases
