@@ -242,7 +242,7 @@ graph <- grViz("digraph flowchart {
 
 graph %>% export_svg() %>% 
   charToRaw() %>% 
-  rsvg_png("Figures/exclusionFlowChart.png", width = 576)
+  rsvg_png("Figures/exclusionFlowChart.png", width = 1500)
 
 ```
 
@@ -438,8 +438,7 @@ invisible(dev.off())
 complete_props <- cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
 ```
 
-###Within group distributions of phenotypic variables
-
+###Impact of motion QC on phenotypic representation within diagnostic groups
 ```{r}
 My_Theme = theme_light()+theme(
   legend.title = element_blank(),
@@ -675,7 +674,7 @@ cowplot::plot_grid(fig2A, fig2B, ncol=2, rel_widths=c(.2, 1.2))
 
 ```
 
-
+####Mann-Whitney U tests to compare included vs excluded participants
 ```{r}
 aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level!="None"))
 
@@ -719,7 +718,7 @@ gam_theme = theme(
 
 ```
 
-####Univariate analysis
+###Univariate analysis of rs-fMRI exclusion probability as a function of covariates across diagnostic groups
 ```{r}
 aim1$delta = rep(NA,length=nrow(aim1))
 aim1$delta = ifelse(aim1$Included=="Included",1,0)
