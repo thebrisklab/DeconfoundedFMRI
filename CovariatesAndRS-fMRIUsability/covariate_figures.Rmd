@@ -17,7 +17,7 @@ webshot::install_phantomjs()
 library(DiagrammeRsvg)
 library(rsvg)
 library(grid)
-library(magrittr)
+library(xtable)
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
@@ -263,7 +263,6 @@ table(dat3$ADHD_Secondary)
 
 ###Summarize sociodemographic info for paper
 ```{r,  results="asis"}
-levels(qcMelt$Motion.Exclusion.Level) = c("None", "Lenient", "Strict")
 tabN<- tableby(PrimaryDiagnosis~Motion.Exclusion.Level, data=filter(qcMelt, Included=="Included"))
 
 summary(tabN,  
@@ -277,7 +276,7 @@ qcMelt$Sex <- relevel(as.factor(qcMelt$Sex), "M")
 
 tabSex<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
 
-summary(tabSex)
+#summary(tabSex)
 
 ```
 
@@ -328,6 +327,14 @@ summary(tab123456)
 
 ```
 
+####Generate version of table to paste into overleaf
+```{r}
+
+xtable(as.data.frame(summary(tab123456)))
+
+```
+
+
 ###Proportion of children excluded
 ```{r, results='hide'}
 #Easier to make three separate panels and combine them then to use faceting function
@@ -362,8 +369,16 @@ dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
   My_Theme_prop+theme(legend.title =element_blank())+
   theme(legend.title = element_blank())+
   ylab("Proportion of Children")+
-  xlab("Diagnosis Group")+
-  theme(legend.position = "none")
+  theme(legend.position = "bottom")+
+  theme(axis.title.x = element_blank())
+  
+png("Figures/fig_propExcludedDxOnly_cc.png",width=3,height=2,units="in",res=200)
+dx_proportions
+invisible(dev.off())
+
+dx_proportions <- 
+  theme(legend.position = "none") +
+  xlab("Diagnosis Group")
 
 ```
 
@@ -430,13 +445,14 @@ prop_legend = cowplot::get_legend(comorbid_proportions + guides(color = guide_le
 
 ####Combine proportion plots into one figure & save
 ```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 3}
-props <- cowplot::plot_grid(dx_proportions, stim_proportions, comorbid_proportions, ncol=3, 
+props <- cowplot::plot_grid(dx_proportions, comorbid_proportions, stim_proportions, ncol=3, 
                    rel_widths=c(1/3, 1/3, 1/3), labels = c("A","B", "C"))
 png("Figures/fig_propExcluded_cc.png",width=8,height=3,units="in",res=200)
 cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
 invisible(dev.off())
 
 complete_props <- cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
+
 ```
 
 ###Impact of motion QC on phenotypic representation within diagnostic groups
