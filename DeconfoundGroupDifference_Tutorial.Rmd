@@ -169,7 +169,7 @@ mean(Y.sample[A.sample==1])-mean(Y.sample[A.sample==0])
 # our estimate:
 deconfounded.diff
 
-# naive estimate:
+# naive estimate: 
 (naive.diff = mean(Y.sample[A.sample==1 & Delta.sample==1]) - mean(Y.sample[A.sample==0 & Delta.sample==1]))
 
 # hypothesis testing:
