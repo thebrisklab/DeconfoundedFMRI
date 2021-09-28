@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #for flowchart
 library(DiagrammeR)
 #to export flowchart as .png
-webshot::install_phantomjs()
+#webshot::install_phantomjs()
 library(DiagrammeRsvg)
 library(rsvg)
 library(grid)
@@ -32,7 +32,7 @@ library(readxl)
 library(arsenal)
 ```
 
-####Define geom_split_violin()
+#### Define geom_split_violin()
 Based on https://debruine.github.io/posts/plot-comparison/
 ```{r, tidy=TRUE}
 GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, draw_group = function(self, data, ..., draw_quantiles = NULL){
@@ -65,8 +65,7 @@ geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", p
 }
 ```
 
-
-####Load Data
+#### Load Data
 ```{r}
 load('Data/DataWithPropensities_seed1.RData')
 
@@ -79,7 +78,7 @@ levels(dat3$PrimaryDiagnosis) = c("TD", "ASD")
 
 ```
 
-####Reshape data to combine motion QC levels
+#### Reshape data to combine motion QC levels
 ```{r, tidy=TRUE}
 #create dummy factor to include all subjects
 dat3$noExclusion <- ifelse(dat3$ID>0, "Pass", "Pass")
@@ -118,7 +117,7 @@ levels(qcMelt$Motion.Exclusion.Level) <- c("Strict", "Lenient", "None")
 #convert Included to factor with pass as reference
 qcMelt$Included <- factor(qcMelt$Included, levels=c("Pass", "Fail"))
 
-#rename levesl of value
+#rename levels of value
 levels(qcMelt$Included) <- c("Included", "Excluded")
 
 with(qcMelt, table(PrimaryDiagnosis, Motion.Exclusion.Level, Included))
@@ -127,7 +126,79 @@ qcMelt$Diagnosis4Levels <- factor(qcMelt$Diagnosis4Levels)
 
 ```
 
-###Create exclusion flowchart
+#### Check consistency of diagnosis variables created by Ben and Liwei
+```{r}
+#limit to complete predictor cases
+dat3 <- filter(dat3, CompletePredictorCases==1)
+
+#convert Diagnosis4Levels to factor
+dat3$Diagnosis4Levels <- factor(dat3$Diagnosis4Levels, levels = c("Autism", "Autism+ADHD", "None"))
+table(dat3$Diagnosis4Levels)
+table(dat3$ADHD_Secondary)
+
+```
+
+49 Autism + 353 None = 402 ADHD_Secondary=0
+
+## 1. Impact of motion QC on sample size
+```{r,  results="asis"}
+tabN<- tableby(PrimaryDiagnosis~Motion.Exclusion.Level, data=filter(qcMelt, Included=="Included"))
+
+summary(tabN,  
+        title='N',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
+
+```
+
+### 1b. Summarize sociodemographic info for complete cases for paper
+```{r, results="asis"}
+
+#sex
+qcMelt$Sex <- relevel(as.factor(qcMelt$Sex), "M")
+
+tabSex<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+
+#age
+tabAge<- tableby( PrimaryDiagnosis~AgeAtScan, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+
+tab12 <- merge(tabSex, tabAge)
+
+#Race
+tabRace<- tableby( PrimaryDiagnosis~Race2, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe", total=FALSE))
+
+tab123 <- merge(tab12, tabRace)
+
+#SES
+tabSES<- tableby( PrimaryDiagnosis~SES.Family, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+
+tab1234 <- merge(tab123, tabSES)
+
+#Handedness
+qcMelt$handedness <- factor(qcMelt$handedness)
+qcMelt$handedness <- relevel(qcMelt$handedness, "Right")
+
+tabHand<- tableby( PrimaryDiagnosis~handedness, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+
+tab12345 <- merge(tab1234, tabHand)
+
+#Currently on Stimulants
+qcMelt$CurrentlyOnStimulants <- factor(qcMelt$CurrentlyOnStimulants)
+
+tabStim<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+
+tab123456 <- merge(tab12345, tabStim)
+summary(tab123456)
+
+```
+
+#### Generate version of table to paste into overleaf
+```{r}
+
+tab <- xtable(as.data.frame(summary(tab123456)))
+print(tab, type="latex")
+
+```
+
+### 1c. Create exclusion flowchart
 ```{r, echo=FALSE, dev='png'}
 #total number of scans attempted
 nAttempted <- qcMelt %>% 
@@ -142,6 +213,7 @@ nAttemptedTD <- qcMelt %>%
   filter(Motion.Exclusion.Level=="None" & PrimaryDiagnosis=="TD") %>% 
   nrow()
 
+#subset to complete predictor cases for the rest of the analysis
 qcMelt <- filter(qcMelt, CompletePredictorCases==1)
 
 nCompleteCases <- qcMelt %>% 
@@ -208,29 +280,29 @@ nStrictTD <- qcMelt %>%
 
 nStrictFailTD = nCompleteCasesTD-nStrictTD
 
-#check that all scans that passed strict also passed moderate
+#check that all scans that passed strict also passed lenient
 nPassStrictNotLenient = length(dat3$Ciric_length[dat3$Ciric_length=="Pass" & dat3$KKI_criteria=="Fail"])
 
 graph <- grViz("digraph flowchart {
       graph [layout = dot, rankdir = LR]
       # node definitions with substituted label text
-      node [fontname = Helvetica, shape = rectangle, style = rounded, fontsize = 18, fixedsize = TRUE, width = 3, height = 1]    
+      node [fontname = Helvetica, shape = rectangle, style = rounded, penwidth = 3, fontsize = 18, fixedsize = TRUE, width = 3, height = 1]    
 #attempted
       tab1 [label = '@@1']
 #completed predictor info
       tab2 [label = '@@2']
 #pass lenient
-      tab3 [label = '@@3']
+      tab3 [label = '@@3', color = '#E9D38D']
 #pass strict
-      tab4 [label = '@@5']
+      tab4 [label = '@@5', color = '#E9D38D']
       
       # edge definitions with the node IDs
 #attempted -> all covariates collected
       tab1 -> tab2
 #all covariates collected -> passed lenient QC
-      tab2 -> tab3 [fontname = Helvetica, fontsize = 18, fontcolor = LightSlateGray, label = '@@4'];
+      tab2 -> tab3 [fontname = Helvetica, fontsize = 20, fontcolor = LightSlateGray, label = '@@4'];
 #all covariates collected -> passed strict QC
-      tab2 -> tab4 [fontname = Helvetica, fontsize = 18, fontcolor = LightSlateGray, label = '@@6'];
+      tab2 -> tab4 [fontname = Helvetica, fontsize = 20, fontcolor = LightSlateGray, label = '@@6'];
       }
       
       [1]: paste0('Participants Scanned', '\\n', 'n = ', nAttempted, '\\n', nAttemptedASD, ' ASD, ' , nAttemptedTD, ' TD')
@@ -245,99 +317,14 @@ graph %>% export_svg() %>%
   charToRaw() %>% 
   rsvg_png("Figures/exclusionFlowChart.png", width = 1500)
 
-```
-NOTE: still exports .png despite this message
-####Check consistency of Diagnosis variables
-```{r}
-#limit to complete predictor cases
-dat3 <- filter(dat3, CompletePredictorCases==1)
-
-#convert Diagnosis4Levels to factor
-dat3$Diagnosis4Levels <- factor(dat3$Diagnosis4Levels, levels = c("Autism", "Autism+ADHD", "None"))
-table(dat3$Diagnosis4Levels)
-table(dat3$ADHD_Secondary)
+graph
 
 ```
 
-49 Autism + 353 None = 402 ADHD_Secondary=0
-
-###Summarize sociodemographic info for paper
-```{r,  results="asis"}
-tabN<- tableby(PrimaryDiagnosis~Motion.Exclusion.Level, data=filter(qcMelt, Included=="Included"))
-
-summary(tabN,  
-        title='N',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
-
-```
-
-###Sex
-```{r, results="asis"}
-qcMelt$Sex <- relevel(as.factor(qcMelt$Sex), "M")
-
-tabSex<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-#summary(tabSex)
-
-```
-
-
-###Age
-```{r, results="asis"}
-tabAge<- tableby( PrimaryDiagnosis~AgeAtScan, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-tab12 <- merge(tabSex, tabAge)
-
-```
-
-###Race
-```{r, results="asis"}
-tabRace<- tableby( PrimaryDiagnosis~Race2, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe"))
-
-tab123 <- merge(tab12, tabRace)
-
-```
-
-###SES
-```{r, results="asis"}
-tabSES<- tableby( PrimaryDiagnosis~SES.Family, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-tab1234 <- merge(tab123, tabSES)
-```
-
-###handedness
-```{r, results="asis"}
-qcMelt$handedness <- factor(qcMelt$handedness)
-qcMelt$handedness <- relevel(qcMelt$handedness, "Right")
-
-tabHand<- tableby( PrimaryDiagnosis~handedness, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-tab12345 <- merge(tab1234, tabHand)
-
-```
-
-###CurrentlyOnStimulants
-```{r, results="asis"}
-qcMelt$CurrentlyOnStimulants <- factor(qcMelt$CurrentlyOnStimulants)
-
-tabStim<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq"))
-
-
-tab123456 <- merge(tab12345, tabStim)
-summary(tab123456)
-
-```
-
-####Generate version of table to paste into overleaf
-```{r}
-
-xtable(as.data.frame(summary(tab123456)))
-
-```
-
-
-###Proportion of children excluded
+### 1d. Proportion excluded
+#### Define theme for proportion excluded plots
 ```{r, results='hide'}
-#Easier to make three separate panels and combine them then to use faceting function
+#Easier to make three separate panels and combine them than to use faceting function
 My_Theme_prop = theme_light()+theme(
   legend.title =element_blank(),
   axis.title.x = element_text(size = 9),
@@ -350,8 +337,8 @@ My_Theme_prop = theme_light()+theme(
 
 ```
 
-####Proportion excluded by Dx
-```{r, tidy=TRUE}
+#### 1d.1 Proportion excluded in each Diagnostic Group
+```{r, tidy=TRUE, fig.width=3, fig.height=2}
 levels(qcMelt$Motion.Exclusion.Level) <- c("Strict", "Lenient", "None")
 
 motion <- filter(qcMelt, Motion.Exclusion.Level!="None")
@@ -369,49 +356,43 @@ dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
   My_Theme_prop+theme(legend.title =element_blank())+
   theme(legend.title = element_blank())+
   ylab("Proportion of Children")+
-  theme(legend.position = "bottom")+
-  theme(axis.title.x = element_blank())
+  theme(legend.position = "right")+
+  theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
+  theme(legend.key.size=unit(.08, "in"))+  
+  theme(axis.title.x = element_blank())+
+  theme(axis.text.x = element_text(size = 10))
   
 png("Figures/fig_propExcludedDxOnly_cc.png",width=3,height=2,units="in",res=200)
 dx_proportions
 invisible(dev.off())
 
-dx_proportions <- 
+dx_proportions
+
+dx_proportions <- dx_proportions +
   theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = 6), axis.title.x = element_text(size = 9))+
   xlab("Diagnosis Group")
 
+#Pearson's chi squared tests
+extib <- tibble(motion)
+
+exNest <- extib %>% 
+  select(c("PrimaryDiagnosis",
+           "Motion.Exclusion.Level", "Included")) %>% 
+  group_by(Motion.Exclusion.Level) %>% 
+  tidyr::nest()
+
+#nested models
+ex_chisq <- exNest %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$PrimaryDiagnosis, .x$Included)))) %>% 
+  unnest(stats) 
+
+ex_chisq
 ```
 
-####Currently on stimulants in ASD group
-```{r}
-stim <- filter(motion, PrimaryDiagnosis=="ASD")
-stim$PrimaryDiagnosis <- droplevels(stim$PrimaryDiagnosis)
-stim$CurrentlyOnStimulants <- factor(stim$CurrentlyOnStimulants)
-levels(stim$CurrentlyOnStimulants)
+A larger proportion of autistic children were excluded compared to typically developing children using both levels of motion QC.
 
-levels(stim$CurrentlyOnStimulants) = c("No", "Yes")
-
-stim <- filter(stim, !is.na(CurrentlyOnStimulants))
-
-stim_proportions <- ggplot(stim, aes(x = CurrentlyOnStimulants, fill = Included))+
-  geom_bar(position = "fill", alpha = .6)+
-  facet_grid(~Motion.Exclusion.Level)+
-  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
-  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
-  My_Theme_prop+
-  xlab("Currently On Stimulants?")+
-  theme(legend.title = element_blank())+
-  #theme(legend.position="top")+
-  theme(legend.text = element_text(size=7))+
-  ylab("Proportion of Autistic Children")+
-  theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
-  theme(legend.key.size=unit(.1, "in"))+
-  theme(legend.position = "none")
-  #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
-
-```
-
-####Secondary ADHD diagnosis in ASD group
+#### 1d.2 Proportion excluded by ADHD comorbidity in the ASD group
 ```{r}
 comorbid <- filter(motion, PrimaryDiagnosis=="ASD")
 comorbid$PrimaryDiagnosis <- droplevels(comorbid$PrimaryDiagnosis)
@@ -441,9 +422,52 @@ prop_legend = cowplot::get_legend(comorbid_proportions + guides(color = guide_le
                                     theme(legend.position = "right", legend.text = element_text(size = 9),
                                           legend.key.size=unit(.1, "in")))
 
+asdNest <- tibble(comorbid) %>% 
+  select(c("Diagnosis4Levels", "CurrentlyOnStimulants",
+           "Motion.Exclusion.Level", "Included")) %>% 
+  reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
+       measure.vars = c("Diagnosis4Levels", "CurrentlyOnStimulants")) %>% 
+  group_by(Motion.Exclusion.Level, variable) %>% 
+  tidyr::nest()
+
+#nested models
+asd_chisq <- asdNest %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$value, .x$Included)))) %>%
+  unnest(stats)
+
+asd_chisq
 ```
 
-####Combine proportion plots into one figure & save
+#### 1d.3 Proportion excluded by Currently on stimulants in ASD group
+```{r}
+stim <- filter(motion, PrimaryDiagnosis=="ASD")
+stim$PrimaryDiagnosis <- droplevels(stim$PrimaryDiagnosis)
+stim$CurrentlyOnStimulants <- factor(stim$CurrentlyOnStimulants)
+levels(stim$CurrentlyOnStimulants)
+
+levels(stim$CurrentlyOnStimulants) = c("No", "Yes")
+
+stim <- filter(stim, !is.na(CurrentlyOnStimulants))
+
+stim_proportions <- ggplot(stim, aes(x = CurrentlyOnStimulants, fill = Included))+
+  geom_bar(position = "fill", alpha = .6)+
+  facet_grid(~Motion.Exclusion.Level)+
+  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
+  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
+  My_Theme_prop+
+  xlab("Currently On Stimulants?")+
+  theme(legend.title = element_blank())+
+  #theme(legend.position="top")+
+  theme(legend.text = element_text(size=7))+
+  ylab("Proportion of Autistic Children")+
+  theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
+  theme(legend.key.size=unit(.1, "in"))+
+  theme(legend.position = "none")
+  #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
+
+```
+
+#### 1d.4 Combine proportion plots into one figure & save
 ```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 3}
 props <- cowplot::plot_grid(dx_proportions, comorbid_proportions, stim_proportions, ncol=3, 
                    rel_widths=c(1/3, 1/3, 1/3), labels = c("A","B", "C"))
@@ -452,25 +476,12 @@ cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
 invisible(dev.off())
 
 complete_props <- cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
+complete_props
 
 ```
 
-###Impact of motion QC on phenotypic representation within diagnostic groups
-```{r}
-My_Theme = theme_light()+theme(
-  legend.title = element_blank(),
-  axis.title.x = element_blank(),
-  axis.title.y = element_blank(),
-  axis.text.x = element_text(size = 5),
-  axis.text.y = element_text(size = 8),
-  strip.text.x = element_text(size = 12, face = "bold", color="black"),
-  strip.text.y = element_text(size = 10, color="black"),
-  strip.background = element_rect(fill="white"),
-  plot.title = element_text(size = 9, hjust = 0.5))
-
-```
-
-####Covariates
+## 2. rs-fMRI exclusion probability as a function of age and symptom severity
+#### Covariates
 ```{r}
 phenoVariables <- c("ID", "PrimaryDiagnosis", 
                     "ADOS.Comparable.Total", 
@@ -493,7 +504,428 @@ levels(aim1$variable) <- c("ADOS", "SRS", "Motor Overflow", "Inattention",
 aim1G <- group_by(aim1, PrimaryDiagnosis, Motion.Exclusion.Level, Included, variable)
 ```
 
-####ADOS (ASD only)
+### 2a. Univarate GAMs
+```{r}
+aim1$delta = rep(NA,length=nrow(aim1))
+aim1$delta = ifelse(aim1$Included=="Included",1,0)
+aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level!="None"))
+aim1tib$Motion.Exclusion.Level <- droplevels(aim1tib$Motion.Exclusion.Level)
+
+aim1Nest <- aim1tib %>% 
+  group_by(Motion.Exclusion.Level, variable) %>% 
+  tidyr::nest()
+
+#nested models
+nested_gams <- aim1Nest %>% 
+  mutate(model = map(data, ~mgcv::gam(1-delta~s(value, k=-1), data = na.omit(.x), 
+                                      family=binomial(link=logit), method="REML")), 
+         coefs = map(model, tidy, conf.int = FALSE),
+         Rsq = map_dbl(model, ~summary(.)$r.sq)) %>% 
+  unnest(coefs)
+
+#Ben: correct for 7 lenient and 7 strict 
+nested_gams_len <-  nested_gams %>% 
+  filter(Motion.Exclusion.Level=="Lenient")
+
+nested_gams_len$p.fdr = p.adjust(nested_gams_len$p.value, method = "BH")
+
+nested_gams_strict <-  nested_gams %>% 
+  filter(Motion.Exclusion.Level=="Strict")
+  
+nested_gams_strict$p.fdr = p.adjust(nested_gams_strict$p.value, method = "BH")
+
+#combine to print
+nested_gams <- rbind(nested_gams_len, nested_gams_strict)
+
+#list adjusted p values
+nested_gams[, c(1:2,6:11)]
+
+nested_gams <- nested_gams %>% 
+           mutate(LB = map(data, ~round(min(na.omit(.x$value)))),
+                  UB = map(data, ~round(max(na.omit(.x$value)))),
+                  range = map2(LB, UB, ~seq(from=.x, to=.y, by=1)),
+                  logpredict = map2(model, range, ~predict(.x, newdata = data.frame(value = .y), type="link",se.fit=TRUE)),
+                  fit = map(logpredict, ~plogis(.x$fit)),
+                  lCI = map(logpredict, ~plogis(.x$fit-1.96*.x$se.fit)),
+                  hCI = map(logpredict, ~plogis(.x$fit+1.96*.x$se.fit)))
+
+```
+
+#### Define theme for gam plots
+```{r,echo=F, message=FALSE, warning=FALSE}
+gam_theme = theme(
+  axis.title.x=element_text(size=12),
+  axis.title.y=element_text(size=12),
+  axis.text.x=element_text(size=8),
+  axis.text.y=element_text(size=10),
+  plot.title = element_text(size = 16),
+  plot.caption = element_text(size = 16,hjust = 0),
+  legend.title = element_blank(), legend.position ="none")
+
+```
+
+#### 2a.1 Probability of exclusion as a function of ADOS
+```{r}
+ados <- nested_gams %>% 
+  filter(variable=="ADOS") %>% 
+  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
+  unnest(c(range, fit, lCI, hCI))
+
+p_ados <- ggplot(ados, aes(x=range, y=fit))+
+  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
+  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  labs(x='', y='Probability of Exclusion', fill='Motion Control', colour='Motion Control')+  
+  scale_x_continuous(expand = c(0, 0))+ 
+  gam_theme+
+  ggtitle("ADOS")+
+  theme(plot.title = element_text(size = 11, hjust = 0.5))
+
+```
+
+#### 2a.2 Probability of exclusion as a function of SRS
+```{r}
+srs <- nested_gams %>% 
+  filter(variable=="SRS") %>% 
+  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
+  unnest(c(range, fit, lCI, hCI))
+
+p_srs <- ggplot(srs, aes(x=range, y=fit))+
+  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
+  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
+  scale_x_continuous(expand = c(0, 0))+
+  gam_theme+
+  ggtitle("SRS")+
+  theme(plot.title = element_text(size = 11, hjust = 0.5))+
+  theme(axis.title.y = element_blank())
+
+```
+
+#### 2a.3 Probability of exclusion as a function of Inattention
+```{r}
+ina <- nested_gams %>% 
+  filter(variable=="Inattention") %>% 
+  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
+  unnest(c(range, fit, lCI, hCI))
+
+p_in <- ggplot(ina, aes(x=range, y=fit))+
+  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
+  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
+  scale_x_continuous(expand = c(0, 0))+ 
+  gam_theme+
+  ggtitle("Inattention")+
+  theme(plot.title = element_text(size = 11, hjust = 0.5))+
+  theme(axis.title.y = element_blank())
+
+```
+
+#### 2a.4 Probability of exclusion as a function of Hyperactivity
+```{r}
+hi <- nested_gams %>% 
+  filter(variable=="Hyperactivity") %>% 
+  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
+  unnest(c(range, fit, lCI, hCI))
+
+p_hi <- ggplot(hi, aes(x=range, y=fit))+
+  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
+  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
+  scale_x_continuous(expand = c(0, 0))+ 
+  gam_theme+
+  ggtitle("Hyperactivity")+
+theme(plot.title = element_text(size = 11, hjust = 0.5))+
+  theme(axis.title.y = element_blank())
+```
+
+#### 2a.5 Probability of exclusion as a function of Motor Overflow
+```{r}
+mo <- nested_gams %>% 
+  filter(variable=="Motor Overflow") %>% 
+  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
+  unnest(c(range, fit, lCI, hCI))
+
+p_mo <- ggplot(mo, aes(x=range, y=fit))+
+  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
+  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
+  scale_x_continuous(expand = c(0, 0))+ 
+  gam_theme+
+  ggtitle("Motor Overflow")+
+  theme(plot.title = element_text(size = 11, hjust = 0.5))+
+  theme(axis.title.y = element_blank())
+```
+
+#### 2a.6 Probability of exclusion as a function of Age
+```{r}
+age<- nested_gams %>% 
+  filter(variable=="Age") %>% 
+  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
+  unnest(c(range, fit, lCI, hCI))
+
+p_age <- ggplot(age, aes(x=range, y=fit))+
+  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
+  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
+  scale_x_continuous(expand = c(0, 0))+ 
+  gam_theme+
+  ggtitle("Age")+
+  theme(plot.title = element_text(size = 11, hjust = 0.5))+
+  theme(axis.title.y = element_blank())
+```
+
+#### 2a.7 Probability of exclusion as a function of GAI
+```{r}
+gai <- nested_gams %>% 
+  filter(variable=="GAI") %>% 
+  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
+  unnest(c(range, fit, lCI, hCI))
+
+p_gai <- ggplot(gai, aes(x=range, y=fit))+
+  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
+  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
+  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
+  scale_x_continuous(expand = c(0, 0))+ 
+  gam_theme+
+  ggtitle("GAI")+
+  theme(plot.title = element_text(size = 11, hjust = 0.5))+
+  theme(axis.title.y = element_blank())
+
+p_legend = cowplot::get_legend(p_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 10),   legend.key.size=unit(.1, "in")))
+
+```
+
+### 2b. Density plots of covariates used to fit GAMs (across included & excluded children) 
+#### Define theme for density plots of covariates across included and excluded children
+```{r,echo=F, message=FALSE, warning=FALSE}
+den_theme = theme(
+  axis.title.x=element_text(size=12),
+  axis.title.y=element_text(size=12),
+  axis.text.x=element_text(size=8),
+  axis.text.y=element_text(size=10),
+  plot.title = element_text(size = 16),
+  plot.caption = element_text(size = 16,hjust = 0),
+  legend.title = element_blank(), legend.position ="none",
+  panel.grid.major = element_blank(), 
+  panel.grid.minor = element_blank(), panel.background = element_blank(), 
+  axis.line = element_line(size=.5), panel.border = element_blank())
+
+```
+
+### 2b.1 ADOS density
+```{r}
+ddata <- nested_gams %>% 
+  filter(variable=="ADOS") %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  select("variable", "Motion.Exclusion.Level", "data") %>% 
+  unnest(data) %>% 
+  filter(PrimaryDiagnosis=="ASD")
+
+ddata$PrimaryDiagnosis <- droplevels(ddata$PrimaryDiagnosis)
+
+d_ados=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
+  geom_density(alpha=0.5, inherit.aes=TRUE)+  
+  scale_x_continuous(expand = c(0, 0))+  
+  scale_y_continuous(expand = c(0, 0), limits = c(0, .09), breaks=seq(0, .08, by=.02))+  
+  labs(x='', y='Density')+
+  scale_fill_manual(values = c("#FDE599"))+ 
+  scale_color_manual(values = c("#E9D38D"))+ 
+  den_theme
+
+```
+
+### 2b.2 SRS density
+```{r}
+ddata <- nested_gams %>% 
+  filter(variable=="SRS") %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  select("variable", "Motion.Exclusion.Level", "data") %>% 
+  unnest(data)
+
+d_srs=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
+  geom_density(alpha=0.5, inherit.aes=TRUE)+  
+  scale_x_continuous(expand = c(0, 0), limits=c(0,max(srs$range)),breaks = seq(0, 100 , by = 50))+  
+  scale_y_continuous(expand = c(0, 0))+  
+  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
+  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), panel.background = element_blank(), 
+        axis.line = element_line(size=.5), panel.border = element_blank())+  
+  den_theme+
+  theme(axis.title.y = element_blank())+
+  labs(x='')
+
+```
+
+### 2b.3 Inattention density
+```{r}
+ddata <- nested_gams %>% 
+  filter(variable=="Inattention") %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  select("variable", "Motion.Exclusion.Level", "data") %>% 
+  unnest(data)
+
+d_in=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
+  geom_density(alpha=0.5, inherit.aes=TRUE)+  
+  scale_x_continuous(expand = c(0, 0))+  
+  scale_y_continuous(expand = c(0, 0))+  
+  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
+  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
+  labs(x='')+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), panel.background = element_blank(), 
+        axis.line = element_line(size=.5), panel.border = element_blank())+  
+  theme(axis.title.y = element_blank())+
+  den_theme+
+  theme(axis.title.y = element_blank())+
+  labs(x='')
+
+```
+
+### 2b.4 Hyperactivity/Impulsivity Density
+```{r}
+ddata <- nested_gams %>% 
+  filter(variable=="Hyperactivity") %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  select("variable", "Motion.Exclusion.Level", "data") %>% 
+  unnest(data)
+
+d_hi=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
+  geom_density(alpha=0.5, inherit.aes=TRUE)+  
+  scale_x_continuous(expand = c(0, 0))+  
+  scale_y_continuous(expand = c(0, 0))+  
+  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
+  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), panel.background = element_blank(), 
+        axis.line = element_line(size=.5), panel.border = element_blank())+  
+  den_theme+
+  theme(axis.title.y = element_blank())+
+  labs(x='')
+
+```
+
+### 2b.5 Motor Overflow Density
+```{r}
+ddata <- nested_gams %>% 
+  filter(variable=="Motor Overflow") %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  select("variable", "Motion.Exclusion.Level", "data") %>% 
+  unnest(data)
+
+d_mo=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
+  geom_density(alpha=0.5, inherit.aes=TRUE)+  
+  scale_x_continuous(expand = c(0, 0))+  
+  scale_y_continuous(expand = c(0, 0))+  
+  theme(axis.title.y = element_blank())+
+  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
+  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), panel.background = element_blank(), 
+        axis.line = element_line(size=.5), panel.border = element_blank())+  
+  den_theme+
+  theme(axis.title.y = element_blank())+
+  labs(x='')
+
+```
+
+### 2b.6 Age Density
+```{r}
+ddata <- nested_gams %>% 
+  filter(variable=="Age") %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  select("variable", "Motion.Exclusion.Level", "data") %>% 
+  unnest(data)
+
+d_age=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
+  geom_density(alpha=0.5, inherit.aes=TRUE)+  
+  scale_x_continuous(expand = c(0, 0), limits=c(8,13), breaks = seq(8, 13 , by = 1))+  
+  scale_y_continuous(expand = c(0, 0), limits=c(0,.29), breaks=seq(0, .25, by = .05))+ 
+  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
+  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), panel.background = element_blank(), 
+        axis.line = element_line(size=.5), panel.border = element_blank())+  
+  den_theme+
+  theme(axis.title.y = element_blank())+
+  labs(x='')
+
+```
+
+### 2b.7 GAI Density
+```{r}
+ddata <- nested_gams %>% 
+  filter(variable=="GAI") %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  select("variable", "Motion.Exclusion.Level", "data") %>% 
+  unnest(data)
+
+d_gai=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
+  geom_density(alpha=0.5, inherit.aes=TRUE)+  
+  scale_x_continuous(expand = c(0, 0))+  
+  scale_y_continuous(expand = c(0, 0), limits = c(0, .035), breaks=seq(0., .03, by=.01))+  
+  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
+  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), panel.background = element_blank(), 
+        axis.line = element_line(size=.5), panel.border = element_blank())+  
+  den_theme+
+  labs(x='')+  
+  theme(axis.title.y = element_blank())
+
+hist_legend = cowplot::get_legend(d_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 10),   legend.key.size=unit(.1, "in")))
+
+```
+
+#### combine gam plots with densities & print
+```{r, fig.width=10, fig.height=6}
+
+top_row <- cowplot::plot_grid(p_ados, p_srs, p_in, p_hi, p_mo, p_age, p_gai, ncol=7, rel_widths=c(1.18/7, .97/7, .97/7, .97/7, .97/7, .97/7, .97/7))
+bottom_row <- cowplot::plot_grid(d_ados, d_srs, d_in, d_hi, d_mo, d_age, d_gai, ncol=7, rel_widths=c(1.18/7, .97/7, .97/7, .97/7, .97/7, .97/7, .97/7))
+
+png("Figures/fig_probExclusion_allGAM_TD_ASD_cc.png",width=10,height=6,units="in",res=200)
+cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=6, rel_heights=c(.1, 1, -.07, .5, -.07, .1))
+dev.off()
+
+#png("~/Dropbox/Apps/Overleaf/MotionSelectionBias_rsfMRI/Figures/fig_probExclusion_allGAM_TD_ASD_cc.png",width=10,height=6,units="in",res=200)
+cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=6, rel_heights=c(.1, 1, -.07, .5, -.07, .1))
+#dev.off()
+
+```
+NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for deconfounded group difference)
+
+## 3. Impact of motion QC on phenotypic representation within diagnostic groups
+### 3a. Split violin plots
+```{r}
+My_Theme = theme_light()+theme(
+  legend.title = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  axis.text.x = element_text(size = 5),
+  axis.text.y = element_text(size = 8),
+  strip.text.x = element_text(size = 12, face = "bold", color="black"),
+  strip.text.y = element_text(size = 10, color="black"),
+  strip.background = element_rect(fill="white"),
+  plot.title = element_text(size = 9, hjust = 0.5))
+
+```
+
+#### 3a.1 ADOS (ASD only) split violin
 NOTE: Missing ADOS scores for one participant evaluated at CARD
 ```{r}
 ados <- aim1 %>% 
@@ -515,7 +947,7 @@ ados_violin <- ggplot(ados, aes(Motion.Exclusion.Level, value, fill = Included, 
 
 ```
 
-####SRS
+#### 3a.2 SRS split violin
 ```{r}
 srs <- filter(aim1G, variable=="SRS")
 aim1_srs <- ggplot(srs, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
@@ -545,64 +977,13 @@ v_legend = cowplot::get_legend(aim1_srs + guides(color = guide_legend(nrow = 2))
   
 ```
 
-NOTE: 183/3 = 91, # of participants missing SRS
+NOTE: 273/3 = 91, # of participants missing SRS
 
 ```{r}
 with(dat3, table(PrimaryDiagnosis, is.na(SRS.Score)))
 ```
 
-
-####Motor Overflow
-```{r}
-overflow <- filter(aim1G, variable=="Motor Overflow")
-aim1_of <- ggplot(overflow, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
-  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
-  facet_grid(PrimaryDiagnosis~.)+
-  stat_summary(fun = "mean", position = position_dodge(width = 0.5), 
-               color="black", geom="point", aes(y=value))+
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
-               color="black", geom="errorbar", width=.2)+
-  # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
-  #geom_pointrange(
-  #  data = summary_pheno,
-  #  aes(Motion.Exclusion.Level, mean, ymin=min, ymax=max),
-  #  shape = 20,
-  #  position = position_dodge(width = 0.9))+
-  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
-  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
-  My_Theme+
-  theme(strip.text.y =element_blank())+
-  theme(legend.position = "none")+
-  ggtitle("Motor Overflow")
-
-```
-
-####Age
-```{r}
-age <- filter(aim1G, variable=="Age")
-aim1_age <- ggplot(age, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
-  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
-  facet_grid(PrimaryDiagnosis~.)+
-  stat_summary(fun = "mean", position = position_dodge(width = 0.5), 
-               color="black", geom="point", aes(y=value))+
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
-               color="black", geom="errorbar", width=.2)+
-  # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
-  #geom_pointrange(
-  #  data = summary_pheno,
-  #  aes(Motion.Exclusion.Level, mean, ymin=min, ymax=max),
-  #  shape = 20,
-  #  position = position_dodge(width = 0.9))+
-  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
-  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
-  My_Theme+
-  theme(strip.text.y =element_blank())+
-  theme(legend.position = "none")+
-  ggtitle("Age")
-
-```
-
-####Inattention
+#### 3a.3 Inattention Split Violin
 ```{r}
 inat <- filter(aim1G, variable=="Inattention")
 paper_inat <- ggplot(inat, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
@@ -627,7 +1008,7 @@ paper_inat <- ggplot(inat, aes(Motion.Exclusion.Level, value, fill = Included, c
 
 ```
 
-####Hyperactivity/Impulsivity
+#### 3a.4 Hyperactivity/Impulsivity Spilt Violin
 ```{r}
 hyp <- filter(aim1G, variable=="Hyperactivity")
 paper_hyp <- ggplot(hyp, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
@@ -652,7 +1033,57 @@ paper_hyp <- ggplot(hyp, aes(Motion.Exclusion.Level, value, fill = Included, col
 
 ```
 
-####GAI
+#### 3a.5 Motor Overflow Split Violin
+```{r}
+overflow <- filter(aim1G, variable=="Motor Overflow")
+aim1_of <- ggplot(overflow, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
+  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
+  facet_grid(PrimaryDiagnosis~.)+
+  stat_summary(fun = "mean", position = position_dodge(width = 0.5), 
+               color="black", geom="point", aes(y=value))+
+  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
+               color="black", geom="errorbar", width=.2)+
+  # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
+  #geom_pointrange(
+  #  data = summary_pheno,
+  #  aes(Motion.Exclusion.Level, mean, ymin=min, ymax=max),
+  #  shape = 20,
+  #  position = position_dodge(width = 0.9))+
+  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
+  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
+  My_Theme+
+  theme(strip.text.y =element_blank())+
+  theme(legend.position = "none")+
+  ggtitle("Motor Overflow")
+
+```
+
+#### 3a.6 Age Split Violin
+```{r}
+age <- filter(aim1G, variable=="Age")
+aim1_age <- ggplot(age, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
+  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
+  facet_grid(PrimaryDiagnosis~.)+
+  stat_summary(fun = "mean", position = position_dodge(width = 0.5), 
+               color="black", geom="point", aes(y=value))+
+  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
+               color="black", geom="errorbar", width=.2)+
+  # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
+  #geom_pointrange(
+  #  data = summary_pheno,
+  #  aes(Motion.Exclusion.Level, mean, ymin=min, ymax=max),
+  #  shape = 20,
+  #  position = position_dodge(width = 0.9))+
+  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
+  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
+  My_Theme+
+  theme(strip.text.y =element_blank())+
+  theme(legend.position = "none")+
+  ggtitle("Age")
+
+```
+
+#### 3a.7 GAI Split Violin
 ```{r}
 gai <- filter(aim1G, variable=="GAI")
 aim1_gai <- ggplot(gai, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
@@ -676,7 +1107,7 @@ aim1_gai <- ggplot(gai, aes(Motion.Exclusion.Level, value, fill = Included, colo
 
 ```
 
-####Combine split violins into one figure & save
+#### Combine split violins into one figure & save
 ```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 4}
 fig2A <- cowplot::plot_grid(v_legend, ados_violin, nrow=2, rel_heights=c(.9, 1.1))
 
@@ -691,425 +1122,73 @@ cowplot::plot_grid(fig2A, fig2B, ncol=2, rel_widths=c(.2, 1.2))
 
 ```
 
-####Mann-Whitney U tests to compare included vs excluded participants
+### 3b. Mann-Whitney U tests to compare included vs excluded participants using lenient motion QC (13 tests)
 ```{r}
-aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level!="None"))
+#run lenient tests first
+aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level=="Lenient"))
 
 aim1MW <- aim1tib %>% 
-  group_by(variable, PrimaryDiagnosis, Motion.Exclusion.Level) %>% 
+  group_by(PrimaryDiagnosis, variable) %>% 
   tidyr::nest()
 
-nested_mw <- aim1MW %>% 
+#hypothesis: included children will have less severe symptoms. NOTE: ADOS only collected in ASD (9 tests)
+nested_mw_less <- aim1MW %>% 
+  filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
+  "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
   coefs = map(mwm, tidy)) %>% 
   unnest(coefs)
 
-nested_less <- nested_mw[-c(2,4,21:28),]
-
-nested_mw <- aim1MW %>% 
+#hypothesis: included children will be older and have greater GAI (4 tests)
+nested_mw_greater<- aim1MW %>% 
+  filter(variable %in% c("Age", "GAI")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
   coefs = map(mwm, tidy)) %>% 
   unnest(coefs)
 
-nested_g <- nested_mw[-c(1:20),]
-
-complete_mw <- rbind(nested_g, nested_less)
+complete_mw <- rbind(nested_mw_less, nested_mw_greater)
 
 complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
 
-complete_asd_mw <- complete_mw %>% filter(PrimaryDiagnosis=="ASD") %>% dplyr::select(-c("data", "mwm", "statistic", "p.value"))
+complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:9)]
 
-complete_td_mw <- complete_mw %>% filter(PrimaryDiagnosis=="TD") %>% dplyr::select(-c("data", "mwm", "statistic", "p.value"))
+```
+
+### 3c. Mann-Whitney U tests to compare included vs excluded participants using strict motion QC (13 tests)
+```{r}
+#run lenient tests first
+aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level=="Strict"))
+
+aim1MW <- aim1tib %>% 
+  group_by(variable, PrimaryDiagnosis) %>% 
+  tidyr::nest()
+
+#hypothesis: included children will have less severe symptoms
+nested_mw_less <- aim1MW %>% 
+  filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
+  "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
+  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
+  coefs = map(mwm, tidy)) %>% 
+  unnest(coefs)
+
+#hypothesis: included children will be older and have greater GAI
+nested_mw_greater<- aim1MW %>% 
+  filter(variable %in% c("Age", "GAI")) %>% 
+  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
+  coefs = map(mwm, tidy)) %>% 
+  unnest(coefs)
+
+complete_mw <- rbind(nested_mw_less, nested_mw_greater)
+
+complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
+
+complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:9)]
         
 ```
 
-```{r,echo=F, message=FALSE, warning=FALSE}
-gam_theme = theme(
-  axis.title.x=element_text(size=12),
-  axis.title.y=element_text(size=12),
-  axis.text.x=element_text(size=8),
-  axis.text.y=element_text(size=10),
-  plot.title = element_text(size = 16),
-  plot.caption = element_text(size = 16,hjust = 0),
-  legend.title = element_blank(), legend.position ="none")
+## 4. Edgewise functional connectivity as a function of the covariates
 
-```
-
-###Univariate analysis of rs-fMRI exclusion probability as a function of covariates across diagnostic groups
-```{r}
-aim1$delta = rep(NA,length=nrow(aim1))
-aim1$delta = ifelse(aim1$Included=="Included",1,0)
-aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level!="None"))
-aim1tib$Motion.Exclusion.Level <- droplevels(aim1tib$Motion.Exclusion.Level)
-
-aim1Nest <- aim1tib %>% 
-  group_by(Motion.Exclusion.Level, variable) %>% 
-  tidyr::nest()
-
-#nested models
-nested_gams <- aim1Nest %>% 
-  mutate(model = map(data, ~mgcv::gam(1-delta~s(value, k=-1), data = na.omit(.x), 
-                                      family=binomial(link=logit), method="REML")), 
-         coefs = map(model, tidy, conf.int = FALSE),
-         Rsq = map_dbl(model, ~summary(.)$r.sq)) %>% 
-  unnest(coefs)
-
-nested_gams$p.fdr <- p.adjust(nested_gams$p.value, method = "BH")
-
-nested_gams <- nested_gams %>% 
-           mutate(LB = map(data, ~round(min(na.omit(.x$value)))),
-                  UB = map(data, ~round(max(na.omit(.x$value)))),
-                  range = map2(LB, UB, ~seq(from=.x, to=.y, by=1)),
-                  logpredict = map2(model, range, ~predict(.x, newdata = data.frame(value = .y), type="link",se.fit=TRUE)),
-                  fit = map(logpredict, ~plogis(.x$fit)),
-                  lCI = map(logpredict, ~plogis(.x$fit-1.96*.x$se.fit)),
-                  hCI = map(logpredict, ~plogis(.x$fit+1.96*.x$se.fit)))
-
-```
-
-##Probability of exclusion as a function of ADOS
-```{r}
-ados <- nested_gams %>% 
-  filter(variable=="ADOS") %>% 
-  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
-  unnest(c(range, fit, lCI, hCI))
-
-p_ados <- ggplot(ados, aes(x=range, y=fit))+
-  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
-  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  labs(x='', y='Probability of Exclusion', fill='Motion Control', colour='Motion Control')+  
-  scale_x_continuous(expand = c(0, 0))+ 
-  gam_theme+
-  ggtitle("ADOS")+
-  theme(plot.title = element_text(size = 11, hjust = 0.5))
-
-```
-
-##Probability of exclusion as a function of SRS
-```{r}
-srs <- nested_gams %>% 
-  filter(variable=="SRS") %>% 
-  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
-  unnest(c(range, fit, lCI, hCI))
-
-p_srs <- ggplot(srs, aes(x=range, y=fit))+
-  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
-  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
-  scale_x_continuous(expand = c(0, 0))+
-  gam_theme+
-  ggtitle("SRS")+
-  theme(plot.title = element_text(size = 11, hjust = 0.5))+
-  theme(axis.title.y = element_blank())
-
-```
-
-##Probability of exclusion as a function of Inattention
-```{r}
-ina <- nested_gams %>% 
-  filter(variable=="Inattention") %>% 
-  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
-  unnest(c(range, fit, lCI, hCI))
-
-p_in <- ggplot(ina, aes(x=range, y=fit))+
-  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
-  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
-  scale_x_continuous(expand = c(0, 0))+ 
-  gam_theme+
-  ggtitle("Inattention")+
-  theme(plot.title = element_text(size = 11, hjust = 0.5))+
-  theme(axis.title.y = element_blank())
-
-```
-
-##Probability of exclusion as a function of Hyperactivity
-```{r}
-hi <- nested_gams %>% 
-  filter(variable=="Hyperactivity") %>% 
-  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
-  unnest(c(range, fit, lCI, hCI))
-
-p_hi <- ggplot(hi, aes(x=range, y=fit))+
-  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
-  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
-  scale_x_continuous(expand = c(0, 0))+ 
-  gam_theme+
-  ggtitle("Hyperactivity")+
-theme(plot.title = element_text(size = 11, hjust = 0.5))+
-  theme(axis.title.y = element_blank())
-```
-
-##Probability of exclusion as a function of Motor Overflow
-```{r}
-mo <- nested_gams %>% 
-  filter(variable=="Motor Overflow") %>% 
-  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
-  unnest(c(range, fit, lCI, hCI))
-
-p_mo <- ggplot(mo, aes(x=range, y=fit))+
-  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
-  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
-  scale_x_continuous(expand = c(0, 0))+ 
-  gam_theme+
-  ggtitle("Motor Overflow")+
-  theme(plot.title = element_text(size = 11, hjust = 0.5))+
-  theme(axis.title.y = element_blank())
-```
-
-##Probability of exclusion as a function of Age
-```{r}
-age<- nested_gams %>% 
-  filter(variable=="Age") %>% 
-  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
-  unnest(c(range, fit, lCI, hCI))
-
-p_age <- ggplot(age, aes(x=range, y=fit))+
-  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
-  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
-  scale_x_continuous(expand = c(0, 0))+ 
-  gam_theme+
-  ggtitle("Age")+
-  theme(plot.title = element_text(size = 11, hjust = 0.5))+
-  theme(axis.title.y = element_blank())
-```
-
-##Probability of exclusion as a function of GAI
-```{r}
-gai <- nested_gams %>% 
-  filter(variable=="GAI") %>% 
-  select("variable", "Motion.Exclusion.Level", "range", "fit", 'lCI', 'hCI') %>% 
-  unnest(c(range, fit, lCI, hCI))
-
-p_gai <- ggplot(gai, aes(x=range, y=fit))+
-  geom_line(aes(colour = Motion.Exclusion.Level),size=1.2)+ylim(0,1)+theme_bw()+
-  geom_ribbon(aes(ymin=lCI, ymax=hCI, fill=Motion.Exclusion.Level), linetype='blank', alpha=0.2)+  
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154","#9FB0CC"))+
-  labs(x='', y='', fill='Motion Control', colour='Motion Control')+  
-  scale_x_continuous(expand = c(0, 0))+ 
-  gam_theme+
-  ggtitle("GAI")+
-  theme(plot.title = element_text(size = 11, hjust = 0.5))+
-  theme(axis.title.y = element_blank())
-
-p_legend = cowplot::get_legend(p_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 10),   legend.key.size=unit(.1, "in")))
-
-```
-
-```{r,echo=F, message=FALSE, warning=FALSE}
-den_theme = theme(
-  axis.title.x=element_text(size=12),
-  axis.title.y=element_text(size=12),
-  axis.text.x=element_text(size=8),
-  axis.text.y=element_text(size=10),
-  plot.title = element_text(size = 16),
-  plot.caption = element_text(size = 16,hjust = 0),
-  legend.title = element_blank(), legend.position ="none",
-  panel.grid.major = element_blank(), 
-  panel.grid.minor = element_blank(), panel.background = element_blank(), 
-  axis.line = element_line(size=.5), panel.border = element_blank())
-
-```
-
-##ADOS density
-```{r}
-ddata <- nested_gams %>% 
-  filter(variable=="ADOS") %>% 
-  filter(Motion.Exclusion.Level=="Lenient") %>% 
-  select("variable", "Motion.Exclusion.Level", "data") %>% 
-  unnest(data) %>% 
-  filter(PrimaryDiagnosis=="ASD")
-
-ddata$PrimaryDiagnosis <- droplevels(ddata$PrimaryDiagnosis)
-
-d_ados=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
-  geom_density(alpha=0.5, inherit.aes=TRUE)+  
-  scale_x_continuous(expand = c(0, 0))+  
-  scale_y_continuous(expand = c(0, 0), limits = c(0, .09), breaks=seq(0, .08, by=.02))+  
-  labs(x='', y='Density')+
-  scale_fill_manual(values = c("#FDE599"))+ 
-  scale_color_manual(values = c("#E9D38D"))+ 
-  den_theme
-
-```
-
-##SRS density
-```{r}
-ddata <- nested_gams %>% 
-  filter(variable=="SRS") %>% 
-  filter(Motion.Exclusion.Level=="Lenient") %>% 
-  select("variable", "Motion.Exclusion.Level", "data") %>% 
-  unnest(data)
-
-d_srs=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
-  geom_density(alpha=0.5, inherit.aes=TRUE)+  
-  scale_x_continuous(expand = c(0, 0), limits=c(0,max(srs$range)),breaks = seq(0, 100 , by = 50))+  
-  scale_y_continuous(expand = c(0, 0))+  
-  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
-  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), panel.background = element_blank(), 
-        axis.line = element_line(size=.5), panel.border = element_blank())+  
-  den_theme+
-  theme(axis.title.y = element_blank())+
-  labs(x='')
-
-```
-
-##Inattention density
-```{r}
-ddata <- nested_gams %>% 
-  filter(variable=="Inattention") %>% 
-  filter(Motion.Exclusion.Level=="Lenient") %>% 
-  select("variable", "Motion.Exclusion.Level", "data") %>% 
-  unnest(data)
-
-d_in=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
-  geom_density(alpha=0.5, inherit.aes=TRUE)+  
-  scale_x_continuous(expand = c(0, 0))+  
-  scale_y_continuous(expand = c(0, 0))+  
-  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
-  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
-  labs(x='')+  
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), panel.background = element_blank(), 
-        axis.line = element_line(size=.5), panel.border = element_blank())+  
-  theme(axis.title.y = element_blank())+
-  den_theme+
-  theme(axis.title.y = element_blank())+
-  labs(x='')
-
-```
-
-##Hyperactivity/Impulsivity Density
-```{r}
-ddata <- nested_gams %>% 
-  filter(variable=="Hyperactivity") %>% 
-  filter(Motion.Exclusion.Level=="Lenient") %>% 
-  select("variable", "Motion.Exclusion.Level", "data") %>% 
-  unnest(data)
-
-d_hi=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
-  geom_density(alpha=0.5, inherit.aes=TRUE)+  
-  scale_x_continuous(expand = c(0, 0))+  
-  scale_y_continuous(expand = c(0, 0))+  
-  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
-  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), panel.background = element_blank(), 
-        axis.line = element_line(size=.5), panel.border = element_blank())+  
-  den_theme+
-  theme(axis.title.y = element_blank())+
-  labs(x='')
-
-```
-
-##Motor Overflow Density
-```{r}
-ddata <- nested_gams %>% 
-  filter(variable=="Motor Overflow") %>% 
-  filter(Motion.Exclusion.Level=="Lenient") %>% 
-  select("variable", "Motion.Exclusion.Level", "data") %>% 
-  unnest(data)
-
-d_mo=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
-  geom_density(alpha=0.5, inherit.aes=TRUE)+  
-  scale_x_continuous(expand = c(0, 0))+  
-  scale_y_continuous(expand = c(0, 0))+  
-  theme(axis.title.y = element_blank())+
-  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
-  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), panel.background = element_blank(), 
-        axis.line = element_line(size=.5), panel.border = element_blank())+  
-  den_theme+
-  theme(axis.title.y = element_blank())+
-  labs(x='')
-
-```
-
-##Age Density
-```{r}
-ddata <- nested_gams %>% 
-  filter(variable=="Age") %>% 
-  filter(Motion.Exclusion.Level=="Lenient") %>% 
-  select("variable", "Motion.Exclusion.Level", "data") %>% 
-  unnest(data)
-
-d_age=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
-  geom_density(alpha=0.5, inherit.aes=TRUE)+  
-  scale_x_continuous(expand = c(0, 0), limits=c(8,13), breaks = seq(8, 13 , by = 1))+  
-  scale_y_continuous(expand = c(0, 0), limits=c(0,.29), breaks=seq(0, .25, by = .05))+ 
-  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
-  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), panel.background = element_blank(), 
-        axis.line = element_line(size=.5), panel.border = element_blank())+  
-  den_theme+
-  theme(axis.title.y = element_blank())+
-  labs(x='')
-
-```
-
-##GAI Density
-```{r}
-ddata <- nested_gams %>% 
-  filter(variable=="GAI") %>% 
-  filter(Motion.Exclusion.Level=="Lenient") %>% 
-  select("variable", "Motion.Exclusion.Level", "data") %>% 
-  unnest(data)
-
-d_gai=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))+  
-  geom_density(alpha=0.5, inherit.aes=TRUE)+  
-  scale_x_continuous(expand = c(0, 0))+  
-  scale_y_continuous(expand = c(0, 0), limits = c(0, .035), breaks=seq(0., .03, by=.01))+  
-  scale_fill_manual(labels=c('TD','ASD'), values = c("#009E73", "#FDE599"))+
-  scale_color_manual(labels=c('TD','ASD'), values = c("#05634a", "#E9D38D"))+
-  
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), panel.background = element_blank(), 
-        axis.line = element_line(size=.5), panel.border = element_blank())+  
-  den_theme+
-  labs(x='')+  
-  theme(axis.title.y = element_blank())
-
-hist_legend = cowplot::get_legend(d_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 10),   legend.key.size=unit(.1, "in")))
-
-```
-
-#combine gam plots with densities & print
-```{r}
-
-top_row <- cowplot::plot_grid(p_ados, p_srs, p_in, p_hi, p_mo, p_age, p_gai, ncol=7, rel_widths=c(1.18/7, .97/7, .97/7, .97/7, .97/7, .97/7, .97/7))
-bottom_row <- cowplot::plot_grid(d_ados, d_srs, d_in, d_hi, d_mo, d_age, d_gai, ncol=7, rel_widths=c(1.18/7, .97/7, .97/7, .97/7, .97/7, .97/7, .97/7))
-
-png("Figures/fig_probExclusion_allGAM_TD_ASD_cc.png",width=10,height=6,units="in",res=200)
-cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=6, rel_heights=c(.1, 1, -.07, .5, -.07, .1))
-dev.off()
-
-#png("~/Dropbox/Apps/Overleaf/MotionSelectionBias_rsfMRI/Figures/fig_probExclusion_allGAM_TD_ASD_cc.png",width=10,height=6,units="in",res=200)
-cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=6, rel_heights=c(.1, 1, -.07, .5, -.07, .1))
-#dev.off()
-
-```
-NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for deconfounded group difference)
-
+#### Combine partial correlations with melted rs-fMRI usability and covariate info
 ```{r}
 startEdgeidx = which(names(dat3)=='r.ic1.ic2')
 endEdgeidx = which(names(dat3)=='r.ic29.ic30')
@@ -1124,7 +1203,7 @@ fcMelt <- reshape2::melt(dat2[,1:160],
 
 ```
 
-##Edgewise functional connectivity as a function of the behavioral covariates
+### 4a. Run nested gams
 ```{r}
 fctib <- tibble(filter(fcMelt, Motion.Exclusion.Level!="None"))
 fctib$Motion.Exclusion.Level <- droplevels(fctib$Motion.Exclusion.Level)
@@ -1140,6 +1219,12 @@ fc_gams <- fcNest %>%
          coefs = map(model, tidy, conf.int = FALSE)) %>% 
   unnest(coefs)
 
+```
+
+### 4b. Plot histograms of edgewise p-values from GAMs
+#### Histogram of edgewise p-values for partial correlations as a function of ADOS. 
+NOTE: TD scores = 0
+```{r}
 pdat <- fc_gams %>% 
   ungroup() %>% 
   filter(variable=="ADOS") %>% 
@@ -1165,9 +1250,35 @@ hist_ados_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motio
   labs(x='p value', y='Count')+
   theme(axis.title.y = element_text(size = 9))+
   theme(axis.title.x = element_text(size = 7))
-
 ```
 
+#### 4b.1 Histogram of edgewise p-values for partial correlations as a function of SRS
+```{r}
+pdat <- fc_gams %>% 
+  ungroup() %>% 
+  filter(variable=="SRS") %>% 
+  select(Motion.Exclusion.Level, p.value) %>% 
+  group_by(Motion.Exclusion.Level)
+
+hist_srs_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motion.Exclusion.Level))+  
+  geom_histogram(position = "identity", alpha=0.5, inherit.aes=TRUE, binwidth = .05)+
+  scale_x_continuous(expand = c(0, 0))+  
+  scale_y_continuous(expand = c(0, 0))+  
+  labs(x='p value', y='')+
+  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154", "#9FB0CC"))+
+  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154", "#9FB0CC"))+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), panel.background = element_blank(), 
+        axis.line = element_line(size=.5), panel.border = element_blank())+  
+  My_Theme+
+  theme(axis.title.y = element_blank())+
+  ggtitle("SRS")+
+  theme(plot.title = element_text(size = 9, hjust = 0.5))+
+  theme(legend.position = "none")+
+  theme(axis.title.x = element_text(size = 7))
+```
+
+#### 4b.2 Histogram of p-values for partial correlations as a function of inattention
 ```{r}
 pdat <- fc_gams %>% 
   ungroup() %>% 
@@ -1194,6 +1305,7 @@ hist_in_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motion.
 
 ```
 
+#### 4b.3 Histogram of p-values for partial correlations as a function of hyperactivity
 ```{r}
 pdat <- fc_gams %>% 
   ungroup() %>% 
@@ -1219,6 +1331,7 @@ hist_hi_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motion.
   theme(axis.title.x = element_text(size = 7))
 ```
 
+#### 4b.4 Histogram of p-values for partial correlations as a function of motor overflow
 ```{r}
 pdat <- fc_gams %>% 
   ungroup() %>% 
@@ -1244,31 +1357,7 @@ hist_mo_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motion.
   theme(axis.title.x = element_text(size = 7))
 ```
 
-```{r}
-pdat <- fc_gams %>% 
-  ungroup() %>% 
-  filter(variable=="SRS") %>% 
-  select(Motion.Exclusion.Level, p.value) %>% 
-  group_by(Motion.Exclusion.Level)
-
-hist_srs_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motion.Exclusion.Level))+  
-  geom_histogram(position = "identity", alpha=0.5, inherit.aes=TRUE, binwidth = .05)+
-  scale_x_continuous(expand = c(0, 0))+  
-  scale_y_continuous(expand = c(0, 0))+  
-  labs(x='p value', y='')+
-  scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154", "#9FB0CC"))+
-  scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154", "#9FB0CC"))+
-  theme(panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(), panel.background = element_blank(), 
-        axis.line = element_line(size=.5), panel.border = element_blank())+  
-  My_Theme+
-  theme(axis.title.y = element_blank())+
-  ggtitle("SRS")+
-  theme(plot.title = element_text(size = 9, hjust = 0.5))+
-  theme(legend.position = "none")+
-  theme(axis.title.x = element_text(size = 7))
-```
-
+#### 4b.5 Histogram of p-values for partial correlations as a function of age
 ```{r}
 pdat <- fc_gams %>% 
   ungroup() %>% 
@@ -1295,6 +1384,7 @@ hist_age_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motion
 
 ```
 
+#### 4b.6 Histogram of p-values for partial correlations as a function of GAI
 ```{r}
 pdat <- fc_gams %>% 
   ungroup() %>% 
@@ -1324,7 +1414,8 @@ hist_p_legend <- cowplot::get_legend(hist_gai_p + guides(color = guide_legend(nr
 
 ```
 
-```{r}
+#### 4b.7 Combine histograms and print
+```{r, fig.width=8, fig.height=3}
 
 fc_hist <- cowplot::plot_grid(hist_ados_p, hist_srs_p, hist_in_p, hist_hi_p, hist_mo_p, hist_age_p, hist_gai_p, ncol=7, rel_widths=c(1.18/7, .97/7, .97/7, .97/7, .97/7, .97/7, .97/7))
 
@@ -1333,6 +1424,8 @@ png("Figures/fig_hist_rfc_facet.png",width=8,height=3,units="in",res=200)
 
 cowplot::plot_grid(fc_hist, hist_p_legend, nrow=2, rel_heights=c(1, .1))
 dev.off()
+
+cowplot::plot_grid(fc_hist, hist_p_legend, nrow=2, rel_heights=c(1, .1))
 
 ```
 
