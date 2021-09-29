@@ -182,10 +182,11 @@ set.seed(seed, &quot;L&#39;Ecuyer-CMRG&quot;)</code></pre>
 <div id="simulate-data" class="section level2">
 <h2>Simulate data</h2>
 <p>Here, we will create a variable X1 that will be driving the confounding between usability and functional connectivity. The idea is to create a variable similar to a measure of ASD severity. It is equal to zero when A=0 and is log normal when A=1. We also create some additional covariates to make the estimation a little harder. In this example, there is bias in the ASD functional connectivity but not in the TD.</p>
-<p>We create a huge dataset that is used to calculate <span class="math inline">\(E^*[Y(1)|A=0]\)</span> and <span class="math inline">\(E^*[Y(1)|A=1]\)</span>, then we also create a sample from this “population” that is then used to estimate <span class="math inline">\(E[E[Y|\Delta=1,A=0,W]|A=0]\)</span> and <span class="math inline">\(E[E[Y|\Delta=1,A=1,W]|A=1]\)</span>.</p>
+<p>We create a huge dataset that is used to calculate <span class="math inline">\(E^*[Y(1)|A=0]\)</span> and <span class="math inline">\(E^*[Y(1)|A=1]\)</span> (approximating the integration via simulation), then we also create a sample from this “population” that is then used to estimate <span class="math inline">\(E[E[Y|\Delta=1,A=0,W]|A=0]\)</span> and <span class="math inline">\(E[E[Y|\Delta=1,A=1,W]|A=1]\)</span>.</p>
 <pre class="r"><code>p=10 # number of covariates
 n1 = 100000 # number of observations to obtain the &quot;true&quot; functional connectivity; needs to be large
 n2 = 550 # number of observations in the &quot;sample&quot;; n2&lt;=n1
+#n2 = 10000 # use huge sample to see we get very close to truth
 
 A = rbinom(n1,1,0.25) # diagnosis
 
@@ -193,14 +194,11 @@ X1 = A*exp(rnorm(n1,sd=0.4)+2) # equal to 0 for A=0, log normal for A=1
 #hist(X1)
 W = cbind(X1,matrix(rnorm(n1*(p-1)),nrow=n1))
 
-gn.true = plogis(2-0.2*X1) # intercept: exp(beta0)/(1+exp(beta0)) is the proportion of A=0 usable
+gn.true = plogis(2-0.2*X1)
 
-quantile(gn.true,0.025) # note: helps to choose parameters so that this is not too close to 0 or 1</code></pre>
-<pre><code>##      2.5% 
-## 0.3874695</code></pre>
-<pre class="r"><code>quantile(gn.true,0.975)</code></pre>
-<pre><code>##     97.5% 
-## 0.8807971</code></pre>
+quantile(gn.true,c(0.025,0.975)) # note: helps to choose parameters so that this is not too close to 0 or 1</code></pre>
+<pre><code>##      2.5%     97.5% 
+## 0.3874695 0.8807971</code></pre>
 <pre class="r"><code>Delta = rbinom(n=n1,size=1,prob = gn.true)
 min(gn.true[Delta==1])</code></pre>
 <pre><code>## [1] 0.02894499</code></pre>
@@ -212,36 +210,33 @@ mean(Delta[A==0])</code></pre>
 <pre><code>## [1] 0.882689</code></pre>
 <pre class="r"><code># check the difference in mean of X1 in all data versus usable.
 # This will influence the degree of confounding:
-mean(X1[A==1])</code></pre>
+mean(X1[A==1]) # mean of X1 in all ASD children</code></pre>
 <pre><code>## [1] 7.986046</code></pre>
-<pre class="r"><code>mean(X1[A==1 &amp; Delta==1])</code></pre>
+<pre class="r"><code>mean(X1[A==1 &amp; Delta==1]) # mean of X1 in ASD children with usable data</code></pre>
 <pre><code>## [1] 7.193776</code></pre>
 <pre class="r"><code># Simulate functional connectivity:
 # In this set up, conditional effect of asd positive, but marginal negative:
 betas_Qbar = c(-0.2,rep(0,p-1),1.4) 
 xmat=cbind(W,A)
-Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)
-
-# Calculate the &quot;true&quot; ASD fconn and &quot;true&quot; TD:
-(ASD.true = mean(Y[A==1]))</code></pre>
+Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)</code></pre>
+<p>Next, we calculate the “true” ASD fconn and “true” TD:</p>
+<pre class="r"><code>(ASD.true = mean(Y[A==1]))</code></pre>
 <pre><code>## [1] -0.197313</code></pre>
 <pre class="r"><code>(TD.true = mean(Y[A==0]))</code></pre>
 <pre><code>## [1] 0.0001689947</code></pre>
-<pre class="r"><code># These are the biased means resulting from confounding with usability:
-mean(Y[A==1 &amp; Delta==1])</code></pre>
+<p>These are the biased means resulting from confounding with usability:</p>
+<pre class="r"><code>mean(Y[A==1 &amp; Delta==1])</code></pre>
 <pre><code>## [1] -0.03853656</code></pre>
 <pre class="r"><code>mean(Y[A==0 &amp; Delta==1])</code></pre>
 <pre><code>## [1] -9.937881e-05</code></pre>
+<p>Create a sample with realistic sample size:</p>
 <pre class="r"><code>sample.i = sample(n1,n2,replace=FALSE)
 Y.sample = Y[sample.i]
 Delta.sample = Delta[sample.i]
 A.sample = A[sample.i]
-W.sample = W[sample.i,]
-
-
-# the best estimate of deconfounded group difference we can expect given limited sample size:
-# this reflects sampling variability
-mean(Y.sample[A.sample==1])</code></pre>
+W.sample = W[sample.i,]</code></pre>
+<p>The best estimate of deconfounded group difference we can expect given limited sample size (the difference between this and truth reflects the small-ish sample size):</p>
+<pre class="r"><code>mean(Y.sample[A.sample==1])</code></pre>
 <pre><code>## [1] -0.182265</code></pre>
 <pre class="r"><code>mean(Y.sample[A.sample==0])</code></pre>
 <pre><code>## [1] 0.01734395</code></pre>
@@ -249,14 +244,13 @@ mean(Y.sample[A.sample==1])</code></pre>
 <div id="fit-propensity-model-using-superlearner" class="section level2">
 <h2>Fit propensity model using superlearner:</h2>
 <p>Estimate propensities (gn) using all data:</p>
-<pre class="r"><code>my.SL.libs = c(&quot;SL.earth&quot;,&quot;SL.glmnet&quot;,&quot;SL.gam&quot;,&quot;SL.glm&quot;,&quot;SL.ranger&quot;,&quot;SL.ridge&quot;,&quot;SL.step&quot;,&quot;SL.step.interaction&quot;,&quot;SL.svm&quot;,&quot;SL.xgboost&quot;,&quot;SL.mean&quot;)
+<pre class="r"><code>my.SL.libs.gn = c(&quot;SL.earth&quot;,&quot;SL.glmnet&quot;,&quot;SL.gam&quot;,&quot;SL.glm&quot;,&quot;SL.ranger&quot;,&quot;SL.step&quot;,&quot;SL.step.interaction&quot;,&quot;SL.xgboost&quot;,&quot;SL.mean&quot;)
 
-(gn.est = mcSuperLearner(Y = Delta.sample, X = data.frame(cbind(W.sample,A.sample)), family=binomial(link=&#39;logit&#39;),SL.library = my.SL.libs, cvControl = list(V = 10), method=&#39;method.AUC&#39;)) # 10-fold CV</code></pre>
-<pre><code>## Warning in system.time({: coefficients already 0 for all failed algorithm(s)</code></pre>
+(gn.est = mcSuperLearner(Y = Delta.sample, X = data.frame(cbind(W.sample,A.sample)), family=binomial(link=&#39;logit&#39;),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method=&#39;method.AUC&#39;)) # 10-fold CV</code></pre>
 <pre><code>## 
 ## Call:  
 ## mcSuperLearner(Y = Delta.sample, X = data.frame(cbind(W.sample, A.sample)),  
-##     family = binomial(link = &quot;logit&quot;), SL.library = my.SL.libs, method = &quot;method.AUC&quot;,  
+##     family = binomial(link = &quot;logit&quot;), SL.library = my.SL.libs.gn, method = &quot;method.AUC&quot;,  
 ##     cvControl = list(V = 10)) 
 ## 
 ## 
@@ -266,25 +260,25 @@ mean(Y.sample[A.sample==1])</code></pre>
 ## SL.gam_All              0.3600052 0.1686696714
 ## SL.glm_All              0.3570079 0.1601136607
 ## SL.ranger_All           0.3881106 0.0351550517
-## SL.ridge_All                   NA 0.0000000000
 ## SL.step_All             0.3682370 0.1783415879
 ## SL.step.interaction_All 0.3898482 0.1691775786
-## SL.svm_All                     NA 0.0000000000
 ## SL.xgboost_All          0.4354597 0.0000000000
 ## SL.mean_All             0.5842184 0.1001461301</code></pre>
+<p>Check to see how well the super learner predictions correspond to the truth propensities:</p>
 <pre class="r"><code>cor(gn.est$SL.predict,gn.true[sample.i])</code></pre>
 <pre><code>##           [,1]
 ## [1,] 0.9193385</code></pre>
-<p>It’s okay that you get warnings for ridge (which is not set up for logistic regression) and for support vector machines. The other learners should run without warning.</p>
 </div>
 <div id="fit-outcome-model-using-superlearner" class="section level2">
 <h2>Fit outcome model using superlearner:</h2>
 <p>Estimate outcome model using usable data. Note: drtlme::tmp_method.CC_LS adjusts the tolerances as recommended by Dr. <span class="citation">@benkbios</span>:</p>
-<pre class="r"><code>(Qbar.est =   mcSuperLearner(Y = Y.sample[Delta.sample==1], X=data.frame(cbind(W.sample,A.sample)[Delta.sample==1,]), family=gaussian(), SL.library = my.SL.libs, cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS))</code></pre>
+<pre class="r"><code>my.SL.libs.Qbar = c(&quot;SL.earth&quot;,&quot;SL.glmnet&quot;,&quot;SL.gam&quot;,&quot;SL.glm&quot;,&quot;SL.ranger&quot;,&quot;SL.ridge&quot;,&quot;SL.step&quot;,&quot;SL.step.interaction&quot;,&quot;SL.svm&quot;,&quot;SL.xgboost&quot;,&quot;SL.mean&quot;)
+(Qbar.est =   mcSuperLearner(Y = Y.sample[Delta.sample==1], X=data.frame(cbind(W.sample,A.sample)[Delta.sample==1,]), family=gaussian(), SL.library = my.SL.libs.Qbar, cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS))</code></pre>
+<pre><code>## Loading required namespace: MASS</code></pre>
 <pre><code>## 
 ## Call:  
 ## mcSuperLearner(Y = Y.sample[Delta.sample == 1], X = data.frame(cbind(W.sample,  
-##     A.sample)[Delta.sample == 1, ]), family = gaussian(), SL.library = my.SL.libs,  
+##     A.sample)[Delta.sample == 1, ]), family = gaussian(), SL.library = my.SL.libs.Qbar,  
 ##     method = drtmle:::tmp_method.CC_LS, cvControl = list(V = 10)) 
 ## 
 ## 
@@ -312,12 +306,12 @@ cor(Y.sample,Qbar.predict)</code></pre>
 mean_fconn_asd.SL &lt;- drtmle(Y = Y.sample[A.sample==1],
                               A = Delta.sample[A.sample==1], # apologies for the notation conflict -- use Delta here
                               W = NULL, # does not do anything with user-input propensities and outcomes
-                              a_0 = 1, # set this to one to correspond to Delta=1
+                              a_0 = 1, # set this to one to correspond to counterfactual that all Delta=1
                               Qn = list(Qbar.predict[A.sample==1]), # pass in fitted outcome values
                               gn = list(gn.est$SL.predict[A.sample==1]), # pass in fitted propensities
                               SL_Qr = &quot;SL.npreg&quot;, # uses non-parametric regression in the drtmle step
                               SL_gr = &quot;SL.npreg&quot;,
-                              maxIter = 3
+                              maxIter = 1
                             )
 
 # TD:
@@ -347,7 +341,7 @@ mean(Y.sample[A.sample==1])-mean(Y.sample[A.sample==0])</code></pre>
 <pre class="r"><code># our estimate:
 deconfounded.diff</code></pre>
 <pre><code>## [1] -0.1774126</code></pre>
-<pre class="r"><code># naive estimate:
+<pre class="r"><code># naive estimate: 
 (naive.diff = mean(Y.sample[A.sample==1 &amp; Delta.sample==1]) - mean(Y.sample[A.sample==0 &amp; Delta.sample==1]))</code></pre>
 <pre><code>## [1] -0.1055089</code></pre>
 <pre class="r"><code># hypothesis testing:
