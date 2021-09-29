@@ -21,12 +21,13 @@ set.seed(seed, "L'Ecuyer-CMRG")
 
 Here, we will create a variable X1 that will be driving the confounding between usability and functional connectivity. The idea is to create a variable similar to a measure of ASD severity. It is equal to zero when A=0 and is log normal when A=1. We also create some additional covariates to make the estimation a little harder. In this example, there is bias in the ASD functional connectivity but not in the TD. 
 
-We create a huge dataset that is used to calculate $E^*[Y(1)|A=0]$ and $E^*[Y(1)|A=1]$, then we also create a sample from this "population" that is then used to estimate $E[E[Y|\Delta=1,A=0,W]|A=0]$ and $E[E[Y|\Delta=1,A=1,W]|A=1]$. 
+We create a huge dataset that is used to calculate $E^*[Y(1)|A=0]$ and $E^*[Y(1)|A=1]$ (approximating the integration via simulation), then we also create a sample from this "population" that is then used to estimate $E[E[Y|\Delta=1,A=0,W]|A=0]$ and $E[E[Y|\Delta=1,A=1,W]|A=1]$. 
 
 ```{r simdata1}
 p=10 # number of covariates
 n1 = 100000 # number of observations to obtain the "true" functional connectivity; needs to be large
 n2 = 550 # number of observations in the "sample"; n2<=n1
+#n2 = 10000 # use huge sample to see we get very close to truth
 
 A = rbinom(n1,1,0.25) # diagnosis
 
@@ -34,10 +35,10 @@ X1 = A*exp(rnorm(n1,sd=0.4)+2) # equal to 0 for A=0, log normal for A=1
 #hist(X1)
 W = cbind(X1,matrix(rnorm(n1*(p-1)),nrow=n1))
 
-gn.true = plogis(2-0.2*X1) # intercept: exp(beta0)/(1+exp(beta0)) is the proportion of A=0 usable
+gn.true = plogis(2-0.2*X1)
 
-quantile(gn.true,0.025) # note: helps to choose parameters so that this is not too close to 0 or 1
-quantile(gn.true,0.975)
+quantile(gn.true,c(0.025,0.975)) # note: helps to choose parameters so that this is not too close to 0 or 1
+
 Delta = rbinom(n=n1,size=1,prob = gn.true)
 min(gn.true[Delta==1])
 
@@ -48,36 +49,49 @@ mean(Delta[A==0])
 
 # check the difference in mean of X1 in all data versus usable.
 # This will influence the degree of confounding:
-mean(X1[A==1])
-mean(X1[A==1 & Delta==1])
+mean(X1[A==1]) # mean of X1 in all ASD children
+mean(X1[A==1 & Delta==1]) # mean of X1 in ASD children with usable data
 
 # Simulate functional connectivity:
 # In this set up, conditional effect of asd positive, but marginal negative:
 betas_Qbar = c(-0.2,rep(0,p-1),1.4) 
 xmat=cbind(W,A)
 Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)
+```
 
-# Calculate the "true" ASD fconn and "true" TD:
+
+Next, we calculate the "true" ASD fconn and "true" TD:
+
+```{r}
 (ASD.true = mean(Y[A==1]))
 (TD.true = mean(Y[A==0]))
+```
 
-# These are the biased means resulting from confounding with usability:
+These are the biased means resulting from confounding with usability:
+
+```{r}
 mean(Y[A==1 & Delta==1])
 mean(Y[A==0 & Delta==1])
+```
 
+
+Create a sample with realistic sample size:
+
+```{r}
 sample.i = sample(n1,n2,replace=FALSE)
 Y.sample = Y[sample.i]
 Delta.sample = Delta[sample.i]
 A.sample = A[sample.i]
 W.sample = W[sample.i,]
+```
 
+The best estimate of deconfounded group difference we can expect given limited sample size (the difference between this and truth reflects the small-ish sample size):
 
-# the best estimate of deconfounded group difference we can expect given limited sample size:
-# this reflects sampling variability
+```{r}
 mean(Y.sample[A.sample==1])
 mean(Y.sample[A.sample==0])
-
 ```
+
 
 ## Fit propensity model using superlearner:
 ```{r, echo=FALSE, message=FALSE}
@@ -102,20 +116,23 @@ library(glmnet)
 Estimate propensities (gn) using all data:
 
 ```{r message=FALSE}
-my.SL.libs = c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridge","SL.step","SL.step.interaction","SL.svm","SL.xgboost","SL.mean")
+my.SL.libs.gn = c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.step","SL.step.interaction","SL.xgboost","SL.mean")
 
-(gn.est = mcSuperLearner(Y = Delta.sample, X = data.frame(cbind(W.sample,A.sample)), family=binomial(link='logit'),SL.library = my.SL.libs, cvControl = list(V = 10), method='method.AUC')) # 10-fold CV
-
-cor(gn.est$SL.predict,gn.true[sample.i])
+(gn.est = mcSuperLearner(Y = Delta.sample, X = data.frame(cbind(W.sample,A.sample)), family=binomial(link='logit'),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method='method.AUC')) # 10-fold CV
 ```
 
-It's okay that you get warnings for ridge (which is not set up for logistic regression) and for support vector machines. The other learners should run without warning. 
+Check to see how well the super learner predictions correspond to the truth propensities:
+
+```{r}
+cor(gn.est$SL.predict,gn.true[sample.i])
+```
 
 ## Fit outcome model using superlearner:
 Estimate outcome model using usable data. Note: drtlme::tmp_method.CC_LS adjusts the tolerances as recommended by Dr. @benkbios:
 
 ```{r}
-(Qbar.est =   mcSuperLearner(Y = Y.sample[Delta.sample==1], X=data.frame(cbind(W.sample,A.sample)[Delta.sample==1,]), family=gaussian(), SL.library = my.SL.libs, cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS))
+my.SL.libs.Qbar = c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridge","SL.step","SL.step.interaction","SL.svm","SL.xgboost","SL.mean")
+(Qbar.est =   mcSuperLearner(Y = Y.sample[Delta.sample==1], X=data.frame(cbind(W.sample,A.sample)[Delta.sample==1,]), family=gaussian(), SL.library = my.SL.libs.Qbar, cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS))
 ```      
 
 Predict outcome for all usable and unusable data:
@@ -131,7 +148,7 @@ cor(Y.sample,Qbar.predict)
 mean_fconn_asd.SL <- drtmle(Y = Y.sample[A.sample==1],
                               A = Delta.sample[A.sample==1], # apologies for the notation conflict -- use Delta here
                               W = NULL, # does not do anything with user-input propensities and outcomes
-                              a_0 = 1, # set this to one to correspond to Delta=1
+                              a_0 = 1, # set this to one to correspond to counterfactual that all Delta=1
                               Qn = list(Qbar.predict[A.sample==1]), # pass in fitted outcome values
                               gn = list(gn.est$SL.predict[A.sample==1]), # pass in fitted propensities
                               SL_Qr = "SL.npreg", # uses non-parametric regression in the drtmle step
