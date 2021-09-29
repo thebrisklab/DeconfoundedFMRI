@@ -142,58 +142,50 @@ table(dat3$ADHD_Secondary)
 
 ## 1. Impact of motion QC on sample size
 ```{r,  results="asis"}
-tabN<- tableby(PrimaryDiagnosis~Motion.Exclusion.Level, data=filter(qcMelt, Included=="Included"))
+
+completeCases <- filter(qcMelt, CompletePredictorCases==1)
+
+tabN<- tableby(PrimaryDiagnosis~Motion.Exclusion.Level, data=filter(completeCases,
+                                                                    Included=="Included"))
 
 summary(tabN,  
         title='N',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
+
 
 ```
 
 ### 1b. Summarize sociodemographic info for complete cases for paper
 ```{r, results="asis"}
 
-#sex
-qcMelt$Sex <- relevel(as.factor(qcMelt$Sex), "M")
+#make M reference level for sex
+completeCases$Sex <- relevel(as.factor(completeCases$Sex), "M")
 
-tabSex<- tableby( PrimaryDiagnosis~Sex, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+#use chisq for Sex and handedness, kruskal-wallis rank test for Age
+tabSex<- tableby( PrimaryDiagnosis~Sex+AgeAtScan+handedness, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
 
-#age
-tabAge<- tableby( PrimaryDiagnosis~AgeAtScan, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+#use fisher's exact test for Race, k-w for SES
+tabRace<- tableby( PrimaryDiagnosis~Race2+SES.Family, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe", total=FALSE))
 
-tab12 <- merge(tabSex, tabAge)
+tab12 <- merge(tabSex, tabRace)
 
-#Race
-tabRace<- tableby( PrimaryDiagnosis~Race2, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe", total=FALSE))
+#Currently on Stimulants - no test because no TDs are currently on stimulants by design
+completeCases$CurrentlyOnStimulants <- factor(completeCases$CurrentlyOnStimulants)
 
-tab123 <- merge(tab12, tabRace)
+#rename factor levels
+levels(completeCases$CurrentlyOnStimulants)[levels(completeCases$CurrentlyOnStimulants)=="0"] <- "No"
+levels(completeCases$CurrentlyOnStimulants)[levels(completeCases$CurrentlyOnStimulants)=="1"] <- "Yes"
 
-#SES
-tabSES<- tableby( PrimaryDiagnosis~SES.Family, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+tabStim<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(total=FALSE, test=FALSE))
 
-tab1234 <- merge(tab123, tabSES)
-
-#Handedness
-qcMelt$handedness <- factor(qcMelt$handedness)
-qcMelt$handedness <- relevel(qcMelt$handedness, "Right")
-
-tabHand<- tableby( PrimaryDiagnosis~handedness, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
-
-tab12345 <- merge(tab1234, tabHand)
-
-#Currently on Stimulants
-qcMelt$CurrentlyOnStimulants <- factor(qcMelt$CurrentlyOnStimulants)
-
-tabStim<- tableby( PrimaryDiagnosis~CurrentlyOnStimulants, data=filter(qcMelt, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
-
-tab123456 <- merge(tab12345, tabStim)
-summary(tab123456)
+tab123 <- merge(tab12, tabStim)
+summary(tab123)
 
 ```
 
 #### Generate version of table to paste into overleaf
 ```{r}
 
-tab <- xtable(as.data.frame(summary(tab123456)))
+tab <- xtable(as.data.frame(summary(tab123)))
 print(tab, type="latex")
 
 ```
@@ -213,19 +205,16 @@ nAttemptedTD <- qcMelt %>%
   filter(Motion.Exclusion.Level=="None" & PrimaryDiagnosis=="TD") %>% 
   nrow()
 
-#subset to complete predictor cases for the rest of the analysis
-qcMelt <- filter(qcMelt, CompletePredictorCases==1)
-
-nCompleteCases <- qcMelt %>% 
+nCompleteCases <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Lenient") %>%
   nrow()
 
-nCompleteCasesASD <- qcMelt %>% 
+nCompleteCasesASD <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Lenient") %>% 
   filter(PrimaryDiagnosis=="ASD") %>% 
   nrow()
 
-nCompleteCasesTD <- qcMelt %>% 
+nCompleteCasesTD <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Lenient") %>% 
   filter(PrimaryDiagnosis=="TD") %>% 
   nrow()
@@ -239,42 +228,42 @@ nCompleteScans <- qcMelt %>%
 nAbort = nCompleteCases - nCompleteScans
 
 #number of usable scans using Lenient QC
-nLenient <- qcMelt %>% 
+nLenient <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Lenient" & Included=="Included") %>% 
   nrow()
 
-nLenientFail <- qcMelt %>% 
+nLenientFail <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Lenient" & Included=="Excluded") %>% 
   nrow()
 
-nLenientASD <- qcMelt %>% 
+nLenientASD <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Lenient" & Included=="Included", PrimaryDiagnosis=="ASD") %>% 
   nrow()
 
 nLenientFailASD = nCompleteCasesASD-nLenientASD
 
-nLenientTD <- qcMelt %>% 
+nLenientTD <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Lenient" & Included=="Included", PrimaryDiagnosis=="TD") %>% 
   nrow()
 
 nLenientFailTD = nCompleteCasesTD-nLenientTD
 
 #number of usable scans using Strict QC
-nStrict <- qcMelt %>% 
+nStrict <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Strict" & Included=="Included") %>% 
   nrow()
 
-nStrictFail <- qcMelt %>% 
+nStrictFail <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Strict" & Included=="Excluded") %>% 
   nrow()
 
-nStrictASD <- qcMelt %>% 
+nStrictASD <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Strict" & Included=="Included", PrimaryDiagnosis=="ASD") %>% 
   nrow()
 
 nStrictFailASD = nCompleteCasesASD-nStrictASD
 
-nStrictTD <- qcMelt %>% 
+nStrictTD <- completeCases %>% 
   filter(Motion.Exclusion.Level=="Strict" & Included=="Included", PrimaryDiagnosis=="TD") %>% 
   nrow()
 
@@ -339,9 +328,9 @@ My_Theme_prop = theme_light()+theme(
 
 #### 1d.1 Proportion excluded in each Diagnostic Group
 ```{r, tidy=TRUE, fig.width=3, fig.height=2}
-levels(qcMelt$Motion.Exclusion.Level) <- c("Strict", "Lenient", "None")
+levels(completeCases$Motion.Exclusion.Level) <- c("Strict", "Lenient", "None")
 
-motion <- filter(qcMelt, Motion.Exclusion.Level!="None")
+motion <- filter(completeCases, Motion.Exclusion.Level!="None")
 motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
 
 levels(motion$PrimaryDiagnosis)
@@ -399,7 +388,7 @@ comorbid$PrimaryDiagnosis <- droplevels(comorbid$PrimaryDiagnosis)
 comorbid$Diagnosis4Levels <- droplevels(comorbid$Diagnosis4Levels)
 levels(comorbid$Diagnosis4Levels)
 
-comorbid <- filter(comorbid, !is.na(Diagnosis4Levels))
+#comorbid <- filter(comorbid, !is.na(Diagnosis4Levels))
 
 comorbid_proportions <- ggplot(comorbid, aes(x = Diagnosis4Levels, fill = Included))+
   geom_bar(position = "fill", alpha = .6)+
@@ -495,8 +484,8 @@ phenoVariables <- c("ID", "PrimaryDiagnosis",
 
 phenoIDs <- c("ID", "PrimaryDiagnosis", "Motion.Exclusion.Level", "Included")
 
-aim1 <- reshape2::melt(qcMelt[, phenoVariables],
-                         id.vars=names(qcMelt)[which(names(qcMelt) %in% phenoIDs)])
+aim1 <- reshape2::melt(completeCases[, phenoVariables],
+                         id.vars=names(completeCases)[which(names(completeCases) %in% phenoIDs)])
 
 levels(aim1$variable) <- c("ADOS", "SRS", "Motor Overflow", "Inattention", 
                            "Hyperactivity", "Age", "GAI")
