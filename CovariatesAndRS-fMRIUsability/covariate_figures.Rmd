@@ -316,10 +316,10 @@ graph
 #Easier to make three separate panels and combine them than to use faceting function
 My_Theme_prop = theme_light()+theme(
   legend.title =element_blank(),
-  axis.title.x = element_text(size = 9),
-  axis.title.y = element_text(size = 9),
+  axis.title.x = element_text(size = 12),
+  axis.title.y = element_text(size = 10),
   plot.title = element_text(size = 30),
-  axis.text.x = element_text(size = 6),
+  axis.text.x = element_text(size = 8),
   axis.text.y = element_text(size = 8),
   strip.text.x = element_text(size = 10,color="black"),
   strip.background = element_rect(fill="white"))
@@ -328,16 +328,18 @@ My_Theme_prop = theme_light()+theme(
 
 #### 1d.1 Proportion excluded in each Diagnostic Group
 ```{r, tidy=TRUE, fig.width=3, fig.height=2}
-levels(completeCases$Motion.Exclusion.Level) <- c("Strict", "Lenient", "None")
-
 motion <- filter(completeCases, Motion.Exclusion.Level!="None")
 motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
 
-levels(motion$PrimaryDiagnosis)
+levels(motion$Diagnosis4Levels)[levels(motion$Diagnosis4Levels)=="Autism"]="ASD"
+levels(motion$Diagnosis4Levels)[levels(motion$Diagnosis4Levels)=="Autism+ADHD"]="ASD+ADHD"
+levels(motion$Diagnosis4Levels)[levels(motion$Diagnosis4Levels)=="None"]="TD"
 
-motion <- group_by(motion, PrimaryDiagnosis, Motion.Exclusion.Level, Included)
+motion$Diagnosis4Levels <- relevel(motion$Diagnosis4Levels, "TD")
 
-dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
+motion <- group_by(motion, Diagnosis4Levels, Motion.Exclusion.Level, Included)
+
+dx_proportions <- ggplot(motion, aes(x = Diagnosis4Levels, fill = Included))+
   geom_bar(position = "fill", alpha = .6)+
   facet_grid(~Motion.Exclusion.Level)+
   scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
@@ -351,7 +353,7 @@ dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
   theme(axis.title.x = element_blank())+
   theme(axis.text.x = element_text(size = 10))
   
-png("Figures/fig_propExcludedDxOnly_cc.png",width=3,height=2,units="in",res=200)
+png("Figures/fig_propExcludedDx3_cc.png",width=3,height=2,units="in",res=200)
 dx_proportions
 invisible(dev.off())
 
@@ -359,59 +361,37 @@ dx_proportions
 
 dx_proportions <- dx_proportions +
   theme(legend.position = "none") +
-  theme(axis.text.x = element_text(size = 6), axis.title.x = element_text(size = 9))+
+  theme(axis.text.x = element_text(size = 8), axis.title.x = element_text(size = 12))+
   xlab("Diagnosis Group")
 
 #Pearson's chi squared tests
 extib <- tibble(motion)
 
 exNest <- extib %>% 
-  select(c("PrimaryDiagnosis",
+  select(c("Diagnosis4Levels",
            "Motion.Exclusion.Level", "Included")) %>% 
   group_by(Motion.Exclusion.Level) %>% 
   tidyr::nest()
 
 #nested models
 ex_chisq <- exNest %>% 
-  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$PrimaryDiagnosis, .x$Included)))) %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$Diagnosis4Levels, .x$Included)))) %>% 
   unnest(stats) 
 
 ex_chisq
 ```
 
-A larger proportion of autistic children were excluded compared to typically developing children using both levels of motion QC.
+The proportion of children excluded differs across diagnostic groups using both the lenient and strict motion QC.
 
-#### 1d.2 Proportion excluded by ADHD comorbidity in the ASD group
+#### 1d.2 ASD only vs ASD+ADHD
 ```{r}
-comorbid <- filter(motion, PrimaryDiagnosis=="ASD")
-comorbid$PrimaryDiagnosis <- droplevels(comorbid$PrimaryDiagnosis)
+comorbid <- filter(motion, Diagnosis4Levels!="TD")
 comorbid$Diagnosis4Levels <- droplevels(comorbid$Diagnosis4Levels)
 levels(comorbid$Diagnosis4Levels)
 
 #comorbid <- filter(comorbid, !is.na(Diagnosis4Levels))
 
-comorbid_proportions <- ggplot(comorbid, aes(x = Diagnosis4Levels, fill = Included))+
-  geom_bar(position = "fill", alpha = .6)+
-  facet_grid(~Motion.Exclusion.Level)+
-  scale_x_discrete(labels = c("No", "Yes"))+
-  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
-  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
-  My_Theme_prop+theme(legend.title =element_blank())+
-  xlab("Comorbid ADHD?")+
-  theme(legend.title = element_blank())+
-  #theme(legend.position="top")+
-  theme(legend.text = element_text(size=7))+
-  ylab("Proportion of Autistic Children")+
-  theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
-  theme(legend.key.size=unit(.1, "in"))+
-  theme(legend.position = "none")
-  #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
-
-prop_legend = cowplot::get_legend(comorbid_proportions + guides(color = guide_legend(ncol = 1))+
-                                    theme(legend.position = "right", legend.text = element_text(size = 9),
-                                          legend.key.size=unit(.1, "in")))
-
-asdNest <- tibble(comorbid) %>% 
+coNest <- tibble(comorbid) %>% 
   select(c("Diagnosis4Levels", "CurrentlyOnStimulants",
            "Motion.Exclusion.Level", "Included")) %>% 
   reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
@@ -420,14 +400,59 @@ asdNest <- tibble(comorbid) %>%
   tidyr::nest()
 
 #nested models
+co_chisq <- coNest %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$value, .x$Included)))) %>%
+  unnest(stats)
+
+co_chisq
+```
+
+#### 1d.3 TD vs ASD only 
+```{r}
+asdTD <- filter(motion, Diagnosis4Levels!="ASD+ADHD")
+asdTD$Diagnosis4Levels <- droplevels(asdTD$Diagnosis4Levels)
+levels(asdTD$Diagnosis4Levels)
+
+asdNest <- tibble(asdTD) %>% 
+  select(c("Diagnosis4Levels",
+           "Motion.Exclusion.Level", "Included")) %>% 
+  reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
+       measure.vars = c("Diagnosis4Levels")) %>% 
+  group_by(Motion.Exclusion.Level) %>% 
+  tidyr::nest()
+
+#nested models
 asd_chisq <- asdNest %>% 
   mutate(stats = map(data, ~broom::tidy(chisq.test(.x$value, .x$Included)))) %>%
   unnest(stats)
 
 asd_chisq
+
 ```
 
-#### 1d.3 Proportion excluded by Currently on stimulants in ASD group
+#### 1d.4 TD vs ASD+ADHD
+```{r}
+coTD <- filter(motion, Diagnosis4Levels!="ASD")
+coTD$Diagnosis4Levels <- droplevels(coTD$Diagnosis4Levels)
+levels(coTD$Diagnosis4Levels)
+
+cotNest <- tibble(coTD) %>% 
+  select(c("Diagnosis4Levels",
+           "Motion.Exclusion.Level", "Included")) %>% 
+  reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
+       measure.vars = c("Diagnosis4Levels")) %>% 
+  group_by(Motion.Exclusion.Level) %>% 
+  tidyr::nest()
+
+#nested models
+cot_chisq <- cotNest %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$value, .x$Included)))) %>%
+  unnest(stats)
+
+cot_chisq
+```
+
+#### 1d.5 Proportion excluded by Currently on stimulants in ASD group
 ```{r}
 stim <- filter(motion, PrimaryDiagnosis=="ASD")
 stim$PrimaryDiagnosis <- droplevels(stim$PrimaryDiagnosis)
@@ -449,17 +474,20 @@ stim_proportions <- ggplot(stim, aes(x = CurrentlyOnStimulants, fill = Included)
   #theme(legend.position="top")+
   theme(legend.text = element_text(size=7))+
   ylab("Proportion of Autistic Children")+
-  theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
-  theme(legend.key.size=unit(.1, "in"))+
   theme(legend.position = "none")
   #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
 
+prop_legend = cowplot::get_legend(stim_proportions + guides(color = guide_legend(ncol = 1))+
+                                    theme(legend.position = "right", 
+                                          legend.text = element_text(size = 9),
+                                          legend.key.size=unit(.1, "in")))
+
 ```
 
-#### 1d.4 Combine proportion plots into one figure & save
+#### 1d.6 Combine proportion plots into one figure & save
 ```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 3}
-props <- cowplot::plot_grid(dx_proportions, comorbid_proportions, stim_proportions, ncol=3, 
-                   rel_widths=c(1/3, 1/3, 1/3), labels = c("A","B", "C"))
+props <- cowplot::plot_grid(dx_proportions, stim_proportions, ncol=2, 
+                   rel_widths=c(3/5, 2/5), labels = c("","", ""))
 png("Figures/fig_propExcluded_cc.png",width=8,height=3,units="in",res=200)
 cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
 invisible(dev.off())
