@@ -220,7 +220,7 @@ gam.prop.model = mgcv::gam(Delta.KKI~PrimaryDiagnosisNone+ADHD_Secondary+SexM+He
 propensities.gam=predict(gam.prop.model,type='response')
 
 
-(propensity.KKI = mcSuperLearner(Y = Delta.KKI, X = gn.xmat, family=binomial(link='logit'),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method='method.AUC')) # 10-fold CV
+(propensity.KKI = mcSuperLearner(Y = Delta.KKI, X = gn.xmat, family=binomial(link='logit'),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method='method.CC_nloglik')) # 10-fold CV
 
 # check positivity assumption:
 min(propensity.KKI$SL.predict[Delta.KKI==1])
