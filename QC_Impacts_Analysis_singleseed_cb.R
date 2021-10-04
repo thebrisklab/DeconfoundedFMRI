@@ -3,10 +3,10 @@
 
 
 # Change this for cluster or local:
-setwd('~/Dropbox/QualityControlImpactsFMRI')
-#setwd('~/risk_share/QualityControlImpacts')
-#save.input.data = FALSE
-save.input.data = TRUE
+#setwd('~/Dropbox/QualityControlImpactsFMRI')
+setwd('~/risk_share/QualityControlImpacts')
+save.input.data = FALSE
+#save.input.data = TRUE
 
 #(num_cores = RhpcBLASctl::get_num_cores())
 a = .libPaths()
@@ -43,7 +43,7 @@ library(ROCit)
 # KKI: Lenient
 # Ciric: Strict
 
-dat=read.csv('../Data/Master_HeadMotion_wholeGroup_partialCorrelations_ic30_20210803.csv',header=T)
+dat=read.csv('./Data/Master_HeadMotion_wholeGroup_partialCorrelations_ic30_20210803.csv',header=T)
 
 # sort by ID: the simplifies the later indexing, as a merge with 
 # propensities sorts by ID:
@@ -65,7 +65,7 @@ table(dat$PrimaryDiagnosis[dat$KKI_criteria=='Pass'])
 table(dat$PrimaryDiagnosis[dat$Ciric_length=='Pass'])
 
 # subset to signal components:
-ic_class = read_excel('./Results/componentLabels_pca85_ica30.xlsx')
+ic_class = read_excel('./DeconfoundedFMRI/componentLabels_pca85_ica30.xlsx')
 
 # create names we want to exclude:
 artifacts = c(1:nrow(ic_class))[ic_class$signal==0]
@@ -115,7 +115,7 @@ t.values.naive=NULL
   
 # NOTE: for better interpretation of the plot of mean changes, center all variables:
 for (i in c(startEdgeidx:endEdgeidx)) {
-  model.temp = lm(dat2[,i]~dat2$MeanFramewiseDisplacement.KKI+dat2$MaxFramewiseDisplacement.KKI+dat2$FramesWithFDLessThanOrEqualTo250microns+dat2$Sex+dat2$Race2+dat2$SES.Family+dat2$PrimaryDiagnosis)
+  model.temp = lm(dat2[,i]~scale(dat2$MeanFramewiseDisplacement.KKI,center = TRUE, scale=FALSE)+scale(dat2$MaxFramewiseDisplacement.KKI,center=TRUE,scale=FALSE)+scale(dat2$FramesWithFDLessThanOrEqualTo250microns,center=TRUE,scale=FALSE)+dat2$Sex+dat2$Race2+scale(dat2$SES.Family,center=TRUE,scale=FALSE)+dat2$PrimaryDiagnosis)
   # create the motion-adjusted fconn data:
   dat2[completeCases,paste0('r.',names(dat2)[i])]=residuals(model.temp)+coef(model.temp)["(Intercept)"]+coef(model.temp)["dat2$PrimaryDiagnosisNone"]*(dat2$PrimaryDiagnosis[completeCases]=='None')
     
@@ -133,14 +133,16 @@ cor(t.values.lm,t.values.naive)
 # Make all ADOS in TD = 0
 dat2$ADOS.Comparable.Total[dat2$PrimaryDiagnosis=='None'] = 0
 
-# Predict PANESS:
-# specify learners for super learner: 
-my.SL.libs = c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridge","SL.step","SL.step.interaction","SL.svm","SL.xgboost","SL.mean")
+# specify learners for super learner. gn is the propensity model and Qbar is the outcome model,
+# also used for imputing PANESS: 
+my.SL.libs.gn= c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.step","SL.step.interaction","SL.xgboost","SL.mean")
+my.SL.libs.Qbar= c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridge","SL.step","SL.step.interaction","SL.svm","SL.xgboost","SL.mean")
 
 # Learners that produce issues:
 #   SL.bartMachine: NA
 #   SL.glminteraction: produces a rank-deficient model
 
+# Predict PANESS:
 #paness.predictors = c('HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.StereotypedBehaviorsRestrictedInterests','ADOS.Comparable.Total')
 
 paness.predictors = c('HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','SES.Family','Race2','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
@@ -158,7 +160,7 @@ paness.xmat.fit = data.frame(model.matrix(PANESS.TotalOverflowNotAccountingForAg
 temp.data$PANESS.TotalOverflowNotAccountingForAge=0
 paness.xmat.predict = data.frame(model.matrix(PANESS.TotalOverflowNotAccountingForAge~.,data=temp.data[completeCasesPredict,])[,-1])
 
-paness.model = mcSuperLearner(Y = PANESS, X = paness.xmat.fit,SL.library = my.SL.libs, family=gaussian(),cvControl = list(V = 10),method = drtmle:::tmp_method.CC_LS) # 10-fold CV
+paness.model = mcSuperLearner(Y = PANESS, X = paness.xmat.fit,SL.library = my.SL.libs.Qbar, family=gaussian(),cvControl = list(V = 10),method = drtmle:::tmp_method.CC_LS) # 10-fold CV
 paness.model
 paness.model$times$everything
 
@@ -218,7 +220,7 @@ gam.prop.model = mgcv::gam(Delta.KKI~PrimaryDiagnosisNone+ADHD_Secondary+SexM+He
 propensities.gam=predict(gam.prop.model,type='response')
 
 
-(propensity.KKI = mcSuperLearner(Y = Delta.KKI, X = gn.xmat, family=binomial(link='logit'),SL.library = my.SL.libs, cvControl = list(V = 10), method='method.AUC')) # 10-fold CV
+(propensity.KKI = mcSuperLearner(Y = Delta.KKI, X = gn.xmat, family=binomial(link='logit'),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method='method.AUC')) # 10-fold CV
 
 # check positivity assumption:
 min(propensity.KKI$SL.predict[Delta.KKI==1])
@@ -309,7 +311,7 @@ for (edgeidx in 1:nEdges) {
   results.df[edgeidx,'z.stat.TD.naive'] = t.test(dat3[idx.pass.cc.td,dat3.edgeidx])$statistic[[1]]
   results.df[edgeidx,'z.stat.diff.naive'] = t.test(dat3[idx.pass.cc.asd,dat3.edgeidx],dat3[idx.pass.cc.td,dat3.edgeidx])$statistic[[1]]
   
-  outcome.SL = mcSuperLearner(Y = dat3[idx.pass.cc,dat3.edgeidx],X=Qn.xmat.fit,family=gaussian(), SL.library = my.SL.libs,cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS)
+  outcome.SL = mcSuperLearner(Y = dat3[idx.pass.cc,dat3.edgeidx],X=Qn.xmat.fit,family=gaussian(), SL.library = my.SL.libs.Qbar,cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS)
       
   Qbar.SL.asd = predict(outcome.SL, newdata = Qn.xmat.predict.asd)[[1]]
   Qbar.SL.td = predict(outcome.SL, newdata = Qn.xmat.predict.td)[[1]]
