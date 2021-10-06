@@ -30,6 +30,8 @@ library(broom)
 library(readxl)
 #for tableby
 library(arsenal)
+
+#Also uses functions from plyr, scales, mgcv, cowplot
 ```
 
 #### Define geom_split_violin()
@@ -67,7 +69,7 @@ geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", p
 
 #### Load Data
 ```{r}
-load('Data/DataWithPropensities_seed1.RData')
+load('../Data/DataWithPropensities_seed1.RData')
 
 #convert PrimaryDiagnosis to factor
 dat3$PrimaryDiagnosis <- factor(dat3$PrimaryDiagnosis, levels = c("Autism", "None"))
@@ -78,13 +80,27 @@ levels(dat3$PrimaryDiagnosis) = c("TD", "ASD")
 
 ```
 
+#### Create Diagnosis variable with 3 levels: Autism-only, Autism+ADHD, and TD
+```{r}
+dat3$Diagnosis3Levels=rep(NA,length = nrow(dat3))
+
+dat3$Diagnosis3Levels[dat3$ADHD_Secondary=="1"] = "ASD+ADHD"
+dat3$Diagnosis3Levels[dat3$ADHD_Secondary==0 & dat3$PrimaryDiagnosis=="ASD"] = "ASD-only"
+dat3$Diagnosis3Levels[dat3$PrimaryDiagnosis=="TD"] = "TD"
+
+dat3$Diagnosis3Levels <- factor(dat3$Diagnosis3Levels, levels = c("TD", "ASD-only", "ASD+ADHD"))
+
+```
+
+49 ASD-only + 353 TD = 402 ADHD_Secondary=0
+
 #### Reshape data to combine motion QC levels
 ```{r, tidy=TRUE}
 #create dummy factor to include all subjects
 dat3$noExclusion <- ifelse(dat3$ID>0, "Pass", "Pass")
-dat3$noExclusion <- factor(dat3$noExclusion)
+dat3$noExclusion <- factor(dat3$noExclusion, levels = c("Pass", "Fail"))
 
-#convert KKI_criteria to factor level "Pass"
+#convert KKI_criteria to factor with reference level "Pass"
 dat3$KKI_criteria <- factor(dat3$KKI_criteria, levels=c("Pass", "Fail"))
 
 #convert Ciric_length to factor with reference level "Pass" to match KKI_criteria
@@ -93,17 +109,19 @@ dat3$Ciric_length <- factor(dat3$Ciric_length, levels=c("Pass", "Fail"))
 #combine Ciric_length, KKI, and noExclusion exclusion into one variable
 allVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan", "Ciric_length", "KKI_criteria", "noExclusion", 
                  "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", 
-                 "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw",  "ADOS.Comparable.Total", 
+                 "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw",  "ADOS.Comparable.Total",
                  "CurrentlyOnStimulants", "HeadCoil", "Sex", 
-                 "Diagnosis4Levels", "ADHD_Secondary", "SES.Family", 
-                 "Race2", "handedness", "CompletePredictorCases", "YearOfScan", "MeanFramewiseDisplacement.KKI")
+                 "ADHD_Secondary", "Diagnosis3Levels", "SES.Family", 
+                 "Race2", "handedness", "CompletePredictorCases", "YearOfScan",
+                 "MeanFramewiseDisplacement.KKI")
 
 idVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan",
                 "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", 
                 "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw", "ADOS.Comparable.Total", 
                 "CurrentlyOnStimulants", "HeadCoil", "Sex", 
-                "Diagnosis4Levels", "ADHD_Secondary", "SES.Family", 
-                "Race2", "handedness", "CompletePredictorCases", "YearOfScan", "MeanFramewiseDisplacement.KKI")
+                "ADHD_Secondary", "Diagnosis3Levels", "SES.Family", 
+                "Race2", "handedness", "CompletePredictorCases", "YearOfScan",
+                "MeanFramewiseDisplacement.KKI")
 
 qcMelt <- reshape2::melt(dat3[, allVariables],
                          id.vars=names(dat3)[which(names(dat3) %in%  idVariables)], 
@@ -122,23 +140,21 @@ levels(qcMelt$Included) <- c("Included", "Excluded")
 
 with(qcMelt, table(PrimaryDiagnosis, Motion.Exclusion.Level, Included))
 
-qcMelt$Diagnosis4Levels <- factor(qcMelt$Diagnosis4Levels)
-
 ```
 
-#### Check consistency of diagnosis variables created by Ben and Liwei
+Lenient motion QC = KKI_criteria
+
+Strict motion QC = Ciric_length
+
+#### Limit initial data set to complete cases and check consistency of diagnosis variables
 ```{r}
-#limit to complete predictor cases
+
 dat3 <- filter(dat3, CompletePredictorCases==1)
 
-#convert Diagnosis4Levels to factor
-dat3$Diagnosis4Levels <- factor(dat3$Diagnosis4Levels, levels = c("Autism", "Autism+ADHD", "None"))
-table(dat3$Diagnosis4Levels)
 table(dat3$ADHD_Secondary)
-
+table(dat3$Diagnosis3Levels)
 ```
-
-49 Autism (only) + 353 None = 402 ADHD_Secondary=0
+49 ASD-only + 353 TD = 402 ADHD_Secondary = 0
 
 ## 1. Impact of motion QC on sample size
 ```{r,  results="asis"}
@@ -148,33 +164,28 @@ completeCases <- filter(qcMelt, CompletePredictorCases==1)
 tabN<- tableby(Motion.Exclusion.Level~
                  Included, data=filter(completeCases, Motion.Exclusion.Level!="None"))
 summary(tabN,  
-        title='Proportion of complete cases excluded by motion QC',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
-
-levels(completeCases$Diagnosis4Levels)[levels(completeCases$Diagnosis4Levels)=="Autism"]="ASD-only"
-levels(completeCases$Diagnosis4Levels)[levels(completeCases$Diagnosis4Levels)=="Autism+ADHD"]="ASD+ADHD"
-levels(completeCases$Diagnosis4Levels)[levels(completeCases$Diagnosis4Levels)=="None"]="TD"
-
+        title='Proportion of complete cases included/excluded by motion QC',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
 
 tabASDonly<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
-                                                                    Diagnosis4Levels=="ASD-only"))
+                                                                    Diagnosis3Levels=="ASD-only"))
 
 summary(tabASDonly,  
-        title = "Proportion of ASD-only participants included/excluded",
+        title = "Proportion of ASD-only complete cases included/excluded",
         digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
 tabASDco<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
-                                                                    Diagnosis4Levels=="ASD+ADHD"))
+                                                                    Diagnosis3Levels=="ASD+ADHD"))
 
 summary(tabASDco,  
-        title = "Proportion of ASD+ADHD participants included/excluded",
+        title = "Proportion of ASD+ADHD complete cases included/excluded",
         digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
 tabTD<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
                                                                     PrimaryDiagnosis=="TD"))
 
 summary(tabTD,  
-        title = "Proportion of TD participants included/excluded",
+        title = "Proportion of TD complete cases included/excluded",
         digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
 ```
@@ -356,11 +367,11 @@ My_Theme_prop = theme_light()+theme(
 motion <- filter(completeCases, Motion.Exclusion.Level!="None")
 motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
 
-motion$Diagnosis4Levels <- relevel(motion$Diagnosis4Levels, "TD")
+motion$Diagnosis3Levels <- relevel(motion$Diagnosis3Levels, "TD")
 
-motion <- group_by(motion, Diagnosis4Levels, Motion.Exclusion.Level, Included)
+motion <- group_by(motion, Diagnosis3Levels, Motion.Exclusion.Level, Included)
 
-dx_proportions <- ggplot(motion, aes(x = Diagnosis4Levels, fill = Included))+
+dx_proportions <- ggplot(motion, aes(x = Diagnosis3Levels, fill = Included))+
   geom_bar(position = "fill", alpha = .6)+
   facet_grid(~Motion.Exclusion.Level)+
   scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
@@ -389,14 +400,14 @@ dx_proportions <- dx_proportions +
 extib <- tibble(motion)
 
 exNest <- extib %>% 
-  select(c("Diagnosis4Levels",
+  select(c("Diagnosis3Levels",
            "Motion.Exclusion.Level", "Included")) %>% 
   group_by(Motion.Exclusion.Level) %>% 
   tidyr::nest()
 
 #nested models
 ex_chisq <- exNest %>% 
-  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$Diagnosis4Levels, .x$Included)))) %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$Diagnosis3Levels, .x$Included)))) %>% 
   unnest(stats) 
 
 ex_chisq
@@ -407,17 +418,17 @@ The proportion of children excluded differs across diagnostic groups using both 
 
 #### 1d.2 ASD only vs ASD+ADHD
 ```{r}
-comorbid <- filter(motion, Diagnosis4Levels!="TD")
-comorbid$Diagnosis4Levels <- droplevels(comorbid$Diagnosis4Levels)
-levels(comorbid$Diagnosis4Levels)
+comorbid <- filter(motion, Diagnosis3Levels!="TD")
+comorbid$Diagnosis3Levels <- droplevels(comorbid$Diagnosis3Levels)
+levels(comorbid$Diagnosis3Levels)
 
-#comorbid <- filter(comorbid, !is.na(Diagnosis4Levels))
+#comorbid <- filter(comorbid, !is.na(Diagnosis3Levels))
 
 coNest <- tibble(comorbid) %>% 
-  select(c("Diagnosis4Levels", "CurrentlyOnStimulants",
+  select(c("Diagnosis3Levels", "CurrentlyOnStimulants",
            "Motion.Exclusion.Level", "Included")) %>% 
   reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
-       measure.vars = c("Diagnosis4Levels", "CurrentlyOnStimulants")) %>% 
+       measure.vars = c("Diagnosis3Levels", "CurrentlyOnStimulants")) %>% 
   group_by(Motion.Exclusion.Level, variable) %>% 
   tidyr::nest()
 
@@ -431,15 +442,15 @@ co_chisq
 
 #### 1d.3 TD vs ASD only 
 ```{r}
-asdTD <- filter(motion, Diagnosis4Levels!="ASD+ADHD")
-asdTD$Diagnosis4Levels <- droplevels(asdTD$Diagnosis4Levels)
-levels(asdTD$Diagnosis4Levels)
+asdTD <- filter(motion, Diagnosis3Levels!="ASD+ADHD")
+asdTD$Diagnosis3Levels <- droplevels(asdTD$Diagnosis3Levels)
+levels(asdTD$Diagnosis3Levels)
 
 asdNest <- tibble(asdTD) %>% 
-  select(c("Diagnosis4Levels",
+  select(c("Diagnosis3Levels",
            "Motion.Exclusion.Level", "Included")) %>% 
   reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
-       measure.vars = c("Diagnosis4Levels")) %>% 
+       measure.vars = c("Diagnosis3Levels")) %>% 
   group_by(Motion.Exclusion.Level) %>% 
   tidyr::nest()
 
@@ -454,15 +465,15 @@ asd_chisq
 
 #### 1d.4 TD vs ASD+ADHD
 ```{r}
-coTD <- filter(motion, Diagnosis4Levels!="ASD")
-coTD$Diagnosis4Levels <- droplevels(coTD$Diagnosis4Levels)
-levels(coTD$Diagnosis4Levels)
+coTD <- filter(motion, Diagnosis3Levels!="ASD")
+coTD$Diagnosis3Levels <- droplevels(coTD$Diagnosis3Levels)
+levels(coTD$Diagnosis3Levels)
 
 cotNest <- tibble(coTD) %>% 
-  select(c("Diagnosis4Levels",
+  select(c("Diagnosis3Levels",
            "Motion.Exclusion.Level", "Included")) %>% 
   reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
-       measure.vars = c("Diagnosis4Levels")) %>% 
+       measure.vars = c("Diagnosis3Levels")) %>% 
   group_by(Motion.Exclusion.Level) %>% 
   tidyr::nest()
 
@@ -582,8 +593,88 @@ passOnly <- filter(completeCases, Included=="Included")
 
 ```
 
+#### mean framewise displacement split violin none, lenient, strict
+```{r}
+meanFD_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, MeanFramewiseDisplacement,
+                                      fill = PrimaryDiagnosis, color=PrimaryDiagnosis)) +
+  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 2) +
+  stat_summary(fun = "mean", position = position_dodge(width = 0.18), 
+               color="black", geom="point", aes(y=MeanFramewiseDisplacement))+
+  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.18), 
+               color="black", geom="errorbar", width=.15)+
+  scale_fill_manual(values = c("#009E73", "#FDE599"))+
+  scale_color_manual(values = c("#05634a", "#E9D38D"))+
+  My_Theme_prop+theme(legend.title =element_blank())+
+  theme(axis.text.y=element_text(size=8))+
+  theme(legend.text = element_text(size = 7))+
+  theme(axis.title.y = element_blank())+
+  theme(axis.title.x = element_blank())+
+  theme(legend.position = c(0.35, .7))+
+  theme(legend.key.size=unit(.15, "in"))+
+  theme(legend.box.margin = margin(-2, -2, -2, -2))+
+  ggtitle("Mean FD")+
+  theme(plot.title = element_text(size = 8, hjust=0.5))
+```
+
+#### max framewise displacement split violin none, lenient, strict
+```{r}
+maxFD_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, MaxFramewiseDisplacement,
+                                     fill = PrimaryDiagnosis, color=PrimaryDiagnosis)) +
+  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 2) +
+  stat_summary(fun = "mean", position = position_dodge(width = 0.18), color="black", 
+               geom="point", aes(y=MaxFramewiseDisplacement))+
+  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.18), 
+               color="black", geom="errorbar", width=.15)+
+  scale_fill_manual(values = c("#009E73", "#FDE599"))+
+  scale_color_manual(values = c("#05634a", "#E9D38D"))+
+  My_Theme_prop+
+  theme(axis.text.y=element_text(size=8))+
+  theme(axis.title.y = element_blank())+
+  theme(axis.title.x = element_blank())+
+  theme(legend.position = "none")+
+  ggtitle("Max FD")+
+  theme(plot.title = element_text(size = 8, hjust=0.5))
+```
+
+#### frames with FD <= 0.25 mm split violin none, lenient, strict
+```{r}
+frames_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, FramesWithFDLessThanOrEqualTo250microns,
+                                     fill = PrimaryDiagnosis, color=PrimaryDiagnosis)) +
+  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 2) +
+  stat_summary(fun = "mean", position = position_dodge(width = 0.18), color="black", 
+               geom="point", aes(y=FramesWithFDLessThanOrEqualTo250microns))+
+  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.18), 
+               color="black", geom="errorbar", width=.15)+
+  scale_fill_manual(values = c("#009E73", "#FDE599"))+
+  scale_color_manual(values = c("#05634a", "#E9D38D"))+
+  My_Theme_prop+
+  theme(axis.text.y=element_text(size=8))+
+  theme(axis.title.y = element_blank())+
+  theme(axis.title.x = element_blank())+
+  theme(legend.position = "none")+
+  ggtitle("Frames with FD<0.25 mm")+
+  theme(plot.title = element_text(size = 8, hjust=0.5))
+```
+
+#### Combine 3 FD plots into one figure and save
+```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 5, fig.height = 3}
+png("Figures/fd_metrics.png",width=5,height=2.5,units="in",res=200)
+
+cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin, 
+                   ncol=3, nrow =1, rel_widths = c(1/3, 1/3, 1/3), labels = c("","", ""))
+dev.off()
+
+cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin, 
+                   ncol=3, nrow =1, rel_widths = c(1/3, 1/3, 1/3), labels = c("","", ""))
+```
+
+Framewise displacement metrics are more similar across diagnostic groups using the strict motion QC, but very few participants are labeled as usable.
+
+### Filter out "None" from Motion.Exclusion.Level to make remaining group differences in FD metrics following motion QC easier to see
+
 #### mean framewise displacement
 ```{r}
+passOnly <- filter(passOnly, Motion.Exclusion.Level!="None")
 meanFD_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, MeanFramewiseDisplacement,
                                       fill = PrimaryDiagnosis, color=PrimaryDiagnosis)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 2) +
@@ -645,9 +736,9 @@ frames_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, FramesWithFDLessTh
   theme(plot.title = element_text(size = 8, hjust=0.5))
 ```
 
-#### Combine 3 FD plots into one figure and save
+#### Combine 3 FD plots with just lenient and strict Motion.Exclusion.Levels and save
 ```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 5, fig.height = 3}
-png("Figures/fd_metrics.png",width=5,height=2.5,units="in",res=200)
+png("Figures/fd_metrics_2levels.png",width=5,height=2.5,units="in",res=200)
 
 cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin, 
                    ncol=3, nrow =1, rel_widths = c(1/3, 1/3, 1/3), labels = c("","", ""))
@@ -657,7 +748,6 @@ cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin,
                    ncol=3, nrow =1, rel_widths = c(1/3, 1/3, 1/3), labels = c("","", ""))
 ```
 
-Framewise displacement metrics are more similar across diagnostic groups using the strict motion QC, but very few participants are labeled as usable.
 
 ## 2. rs-fMRI exclusion probability as a function of age and symptom severity
 #### Covariates
@@ -718,6 +808,13 @@ nested_gams <- rbind(nested_gams_len, nested_gams_strict)
 
 #list adjusted p values
 nested_gams[, c(1:2,6:11)]
+
+#max p value for 7 lenient models
+max(nested_gams_len$p.fdr)
+
+#max p value for 7 strict models
+max(nested_gams_strict$p.fdr)
+
 
 nested_gams <- nested_gams %>% 
            mutate(LB = map(data, ~round(min(na.omit(.x$value)))),
@@ -1335,7 +1432,7 @@ complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:9)]
 
 ### 3c. Mann-Whitney U tests to compare included vs excluded participants using strict motion QC (13 tests)
 ```{r}
-#run lenient tests first
+#run tests using strict motion QC
 aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level=="Strict"))
 
 aim1MW <- aim1tib %>% 
@@ -1364,7 +1461,6 @@ complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
 complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:9)]
         
 ```
-
 ## 4. Edgewise functional connectivity as a function of the covariates
 
 #### Combine partial correlations with melted rs-fMRI usability and covariate info
@@ -1414,9 +1510,6 @@ hist_ados_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motio
   geom_histogram(position = "identity", alpha=0.5, inherit.aes=TRUE, binwidth = .05)+
   scale_x_continuous(expand = c(0, 0))+  
   scale_y_continuous(expand = c(0, 0))+  
-  labs(x='p value', y='')+
-  #scale_fill_manual(labels=c('TD','ASD'), values = c("#FDE599", "#9FB0CC"))+
-  #scale_color_manual(labels=c('TD','ASD'), values = c("#E9D38D", "#8C9AB4"))+
   scale_color_manual(labels=c('Strict', 'Lenient'), values = c("#f55154", "#9FB0CC"))+
   scale_fill_manual(labels=c('Strict', 'Lenient'), values = c("#f55154", "#9FB0CC"))+
   theme(panel.grid.major = element_blank(), 
@@ -1427,7 +1520,7 @@ hist_ados_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motio
   theme(plot.title = element_text(size = 9, hjust = 0.5))+
   theme(legend.position = "none")+
   labs(x='p value', y='Count')+
-  theme(axis.title.y = element_text(size = 9))+
+  theme(axis.title.y = element_text(size = 9, angle=90))+
   theme(axis.title.x = element_text(size = 7))
 ```
 
@@ -1598,8 +1691,7 @@ hist_p_legend <- cowplot::get_legend(hist_gai_p + guides(color = guide_legend(nr
 
 fc_hist <- cowplot::plot_grid(hist_ados_p, hist_srs_p, hist_in_p, hist_hi_p, hist_mo_p, hist_age_p, hist_gai_p, ncol=7, rel_widths=c(1.18/7, .97/7, .97/7, .97/7, .97/7, .97/7, .97/7))
 
-#png("~/Dropbox/Apps/Overleaf/MotionSelectionBias_rsfMRI/Figures/fig_hist_fc.png",width=8,height=3,units="in",res=200)
-png("Figures/fig_hist_rfc_facet.png",width=8,height=3,units="in",res=200)
+png("Figures/fig_hist_rfc_cc.png",width=8,height=3,units="in",res=200)
 
 cowplot::plot_grid(fc_hist, hist_p_legend, nrow=2, rel_heights=c(1, .1))
 dev.off()
