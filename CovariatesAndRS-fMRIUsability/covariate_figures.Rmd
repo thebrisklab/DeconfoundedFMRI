@@ -288,9 +288,9 @@ nStrictFailTD = nCompleteCasesTD-nStrictTD
 nPassStrictNotLenient = length(dat3$Ciric_length[dat3$Ciric_length=="Pass" & dat3$KKI_criteria=="Fail"])
 
 graph <- grViz("digraph flowchart {
-      graph [layout = dot, rankdir = LR]
+      graph [layout = dot, rankdir = LR, label='Complete Usable Cases', labelloc='top', labeljust='right', fontname = Helvetica, fontsize=20]
       # node definitions with substituted label text
-      node [fontname = Helvetica, shape = rectangle, style = rounded, penwidth = 3, fontsize = 18, fixedsize = TRUE, width = 3, height = 1]    
+      node [fontname = Helvetica, shape = rectangle, style = rounded, penwidth = 3, fontsize = 20, fixedsize = TRUE, width = 3, height = 1.4]    
 #attempted
       tab1 [label = '@@1']
 #completed predictor info
@@ -309,8 +309,8 @@ graph <- grViz("digraph flowchart {
       tab2 -> tab4 [fontname = Helvetica, fontsize = 20, fontcolor = LightSlateGray, label = '@@6'];
       }
       
-      [1]: paste0('Participants Scanned', '\\n', 'n = ', nAttempted, '\\n', nAttemptedASD, ' ASD, ' , nAttemptedTD, ' TD')
-      [2]: paste0('Complete Predictor Cases', '\\n', 'n = ', nCompleteCases, '\\n', nCompleteCasesASD, ' ASD, ' , nCompleteCasesTD, ' TD')
+      [1]: paste0('Participants', '\\n', 'Scanned', '\\n', 'n = ', nAttempted, '\\n', nAttemptedASD, ' ASD, ' , nAttemptedTD, ' TD')
+      [2]: paste0('Complete', '\\n', 'Predictor Cases', '\\n', 'n = ', nCompleteCases, '\\n', nCompleteCasesASD, ' ASD, ' , nCompleteCasesTD, ' TD')
       [3]: paste0('Passed Lenient QC', '\\n', 'n = ', nLenient, '\\n', nLenientASD, ' ASD, ' , nLenientTD, ' TD')
       [4]: paste0('Failed Lenient QC', '\\n', 'n = ', nLenientFail)
       [5]: paste0('Passed Strict QC', '\\n',  'n = ', nStrict, '\\n', nStrictASD, ' ASD, ' , nStrictTD, ' TD')
@@ -319,7 +319,7 @@ graph <- grViz("digraph flowchart {
 
 graph %>% export_svg() %>% 
   charToRaw() %>% 
-  rsvg_png("Figures/exclusionFlowChart.png", width = 1500, heigh = 300)
+  rsvg_png("Figures/exclusionFlowChart.png", width = 1500, heigh = 500)
 
 graph
 
@@ -336,13 +336,13 @@ My_Theme_prop = theme_light()+theme(
   plot.title = element_text(size = 30),
   axis.text.x = element_text(size = 10),
   axis.text.y = element_text(size = 10),
-  strip.text.x = element_text(size = 10,color="black"),
+  strip.text.x = element_text(size = 12,color="black"),
   strip.background = element_rect(fill="white"))
 
 ```
 
 #### 1d.1 Proportion excluded in each Diagnostic Group
-```{r, tidy=TRUE, fig.width=8, fig.height=2}
+```{r, tidy=TRUE, fig.width=4, fig.height=2.5}
 motion <- filter(completeCases, Motion.Exclusion.Level!="None")
 motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
 
@@ -356,22 +356,15 @@ dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
   My_Theme_prop+theme(legend.title =element_blank())+
   theme(legend.title = element_blank())+
   ylab("Proportion of Children")+
-  theme(legend.position = "right")+
+  theme(legend.position = "bottom")+
   theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
-  theme(legend.key.size=unit(.08, "in"))+  
+  theme(legend.key.size=unit(.1, "in"), legend.text = element_text(size = 10))+  
   theme(axis.title.x = element_blank())+
   theme(axis.text.x = element_text(size = 10))
   
-png("Figures/fig_propExcludedDx_cc.png",width=3,height=2,units="in",res=200)
+png("Figures/fig_propExcludedDx_cc.png",width=3,height=2.5,units="in",res=200)
 dx_proportions
 invisible(dev.off())
-
-dx_proportions
-
-dx_proportions <- dx_proportions +
-  theme(legend.position = "none") +
-  theme(axis.text.x = element_text(size = 8), axis.title.x = element_text(size = 12))+
-  xlab("Diagnosis Group")
 
 #Pearson's chi squared tests
 extib <- tibble(motion)
@@ -392,64 +385,6 @@ ex_chisq
 ```
 
 The proportion of children excluded differs across diagnostic groups using both the lenient and strict motion QC.
-
-#### 1d.2 Currently on Stimulants
-```{r}
-stim <- filter(motion, PrimaryDiagnosis=="ASD")
-stim$PrimaryDiagnosis <- droplevels(stim$PrimaryDiagnosis)
-stim$CurrentlyOnStimulants <- factor(stim$CurrentlyOnStimulants)
-levels(stim$CurrentlyOnStimulants)
-
-levels(stim$CurrentlyOnStimulants) = c("No", "Yes")
-
-stimNest <- tibble(stim) %>% 
-  select(c("CurrentlyOnStimulants",
-           "Motion.Exclusion.Level", "Included")) %>% 
-  group_by(Motion.Exclusion.Level) %>% 
-  tidyr::nest()
-
-#nested models
-stim_chisq <- stimNest %>% 
-  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$CurrentlyOnStimulants, .x$Included)))) %>%
-  unnest(stats)
-
-stim_chisq
-```
-
-#### 1d.5 Proportion excluded by Currently on stimulants in ASD group
-```{r}
-stim_proportions <- ggplot(stim, aes(x = CurrentlyOnStimulants, fill = Included))+
-  geom_bar(position = "fill", alpha = .6)+
-  facet_grid(~Motion.Exclusion.Level)+
-  scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
-  scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
-  My_Theme_prop+
-  xlab("Currently On Stimulants?")+
-  theme(legend.title = element_blank())+
-  #theme(legend.position="top")+
-  theme(legend.text = element_text(size=7))+
-  ylab("Proportion of Autistic Children")+
-  theme(legend.position = "none")+
-  theme(strip.text.x = element_blank())
-  #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
-
-prop_legend = cowplot::get_legend(stim_proportions + guides(color = guide_legend(ncol = 1))+
-                                    theme(legend.position = "bottom", 
-                                          legend.text = element_text(size = 11),
-                                          legend.key.size=unit(.1, "in")))
-
-```
-
-#### 1d.6 Combine proportion plot with legend & save
-```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 4, fig.height = 2}
-png("Figures/fig_propExcluded_cc.png",width=4,height=2,units="in",res=200)
-cowplot::plot_grid(dx_proportions, prop_legend, nrow=2, rel_heights = c(1, .1))
-invisible(dev.off())
-
-complete_props <- cowplot::plot_grid(dx_proportions, prop_legend, nrow=2, rel_heights = c(1, .1))
-complete_props
-
-```
 
 ####Impact of motion QC on framewise displacement metrics
 ```{r}
@@ -591,7 +526,7 @@ cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin,
 
 Framewise displacement metrics are more similar across diagnostic groups using the strict motion QC, but very few participants are labeled as usable.
 
-### Filter out "None" from Motion.Exclusion.Level to make remaining group differences in FD metrics following motion QC easier to see
+#### Filter out "None" from Motion.Exclusion.Level to make remaining group differences in FD metrics following motion QC easier to see
 
 #### mean framewise displacement
 ```{r}
@@ -1333,26 +1268,33 @@ nested_mw_less <- aim1MW %>%
   filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
   "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
-         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
-         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
-  coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMean, excludedMean))
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMedian, excludedMedian))
 
 #hypothesis: included children will be older and have greater GAI (4 tests)
 nested_mw_greater<- aim1MW %>% 
   filter(variable %in% c("Age", "GAI")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
-         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
-         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
-  coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMean, excludedMean))
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMedian, excludedMedian))
 
 complete_mw <- rbind(nested_mw_less, nested_mw_greater)
 
 complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
 
-complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:9)]
+names(complete_mw)[which(names(complete_mw)=="statistic")]="U"
 
+complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)]
+
+xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)])
 
 ```
 
@@ -1370,27 +1312,33 @@ nested_mw_less <- aim1MW %>%
   filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
   "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
-         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
-         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
          coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMean, excludedMean))
+  unnest(c(coefs, includedMedian, excludedMedian))
 
 #hypothesis: included children will be older and have greater GAI
 nested_mw_greater<- aim1MW %>% 
   filter(variable %in% c("Age", "GAI")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
-         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
-         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
-  coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMean, excludedMean))
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMedian, excludedMedian))
 
 complete_mw <- rbind(nested_mw_less, nested_mw_greater)
 
 complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
 
-complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:6, 10:11)]
+names(complete_mw)[which(names(complete_mw)=="statistic")]="U"
 
-xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:6, 10:11)])
+complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)]
+
+xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)])
         
 ```
 ## 4. Edgewise functional connectivity as a function of the covariates
