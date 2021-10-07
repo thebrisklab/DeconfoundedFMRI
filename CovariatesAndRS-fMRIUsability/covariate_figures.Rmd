@@ -1333,15 +1333,19 @@ nested_mw_less <- aim1MW %>%
   filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
   "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
+         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
+         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
   coefs = map(mwm, tidy)) %>% 
-  unnest(coefs)
+  unnest(c(coefs, includedMean, excludedMean))
 
 #hypothesis: included children will be older and have greater GAI (4 tests)
 nested_mw_greater<- aim1MW %>% 
   filter(variable %in% c("Age", "GAI")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
+         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
+         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
   coefs = map(mwm, tidy)) %>% 
-  unnest(coefs)
+  unnest(c(coefs, includedMean, excludedMean))
 
 complete_mw <- rbind(nested_mw_less, nested_mw_greater)
 
@@ -1349,10 +1353,11 @@ complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
 
 complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:9)]
 
+
 ```
 
 ### 3c. Mann-Whitney U tests to compare included vs excluded participants using strict motion QC (13 tests)
-```{r}
+```{r, asis}
 #run tests using strict motion QC
 aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level=="Strict"))
 
@@ -1365,21 +1370,27 @@ nested_mw_less <- aim1MW %>%
   filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
   "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
-  coefs = map(mwm, tidy)) %>% 
-  unnest(coefs)
+         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
+         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMean, excludedMean))
 
 #hypothesis: included children will be older and have greater GAI
 nested_mw_greater<- aim1MW %>% 
   filter(variable %in% c("Age", "GAI")) %>% 
   mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
+         includedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Included"))),
+         excludedMean = map(data, ~mean(.x$value, data=filter(.x, Included=="Excluded"))),
   coefs = map(mwm, tidy)) %>% 
-  unnest(coefs)
+  unnest(c(coefs, includedMean, excludedMean))
 
 complete_mw <- rbind(nested_mw_less, nested_mw_greater)
 
 complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
 
-complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:9)]
+complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:6, 10:11)]
+
+xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 5:6, 10:11)])
         
 ```
 ## 4. Edgewise functional connectivity as a function of the covariates
