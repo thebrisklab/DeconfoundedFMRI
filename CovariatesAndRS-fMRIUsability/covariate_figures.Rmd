@@ -80,18 +80,6 @@ levels(dat3$PrimaryDiagnosis) = c("TD", "ASD")
 
 ```
 
-#### Create Diagnosis variable with 3 levels: Autism-only, Autism+ADHD, and TD
-```{r}
-dat3$Diagnosis3Levels=rep(NA,length = nrow(dat3))
-
-dat3$Diagnosis3Levels[dat3$ADHD_Secondary=="1"] = "ASD+ADHD"
-dat3$Diagnosis3Levels[dat3$ADHD_Secondary==0 & dat3$PrimaryDiagnosis=="ASD"] = "ASD-only"
-dat3$Diagnosis3Levels[dat3$PrimaryDiagnosis=="TD"] = "TD"
-
-dat3$Diagnosis3Levels <- factor(dat3$Diagnosis3Levels, levels = c("TD", "ASD-only", "ASD+ADHD"))
-
-```
-
 49 ASD-only + 353 TD = 402 ADHD_Secondary=0
 
 #### Reshape data to combine motion QC levels
@@ -111,7 +99,7 @@ allVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan", "Ciric_length", "KKI_cri
                  "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", 
                  "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw",  "ADOS.Comparable.Total",
                  "CurrentlyOnStimulants", "HeadCoil", "Sex", 
-                 "ADHD_Secondary", "Diagnosis3Levels", "SES.Family", 
+                 "ADHD_Secondary", "SES.Family", 
                  "Race2", "handedness", "CompletePredictorCases", "YearOfScan",
                  "MeanFramewiseDisplacement.KKI")
 
@@ -119,7 +107,7 @@ idVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan",
                 "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", 
                 "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw", "ADOS.Comparable.Total", 
                 "CurrentlyOnStimulants", "HeadCoil", "Sex", 
-                "ADHD_Secondary", "Diagnosis3Levels", "SES.Family", 
+                "ADHD_Secondary", "SES.Family", 
                 "Race2", "handedness", "CompletePredictorCases", "YearOfScan",
                 "MeanFramewiseDisplacement.KKI")
 
@@ -146,15 +134,12 @@ Lenient motion QC = KKI_criteria
 
 Strict motion QC = Ciric_length
 
-#### Limit initial data set to complete cases and check consistency of diagnosis variables
+#### Limit initial data set to complete cases
 ```{r}
 
 dat3 <- filter(dat3, CompletePredictorCases==1)
 
-table(dat3$ADHD_Secondary)
-table(dat3$Diagnosis3Levels)
 ```
-49 ASD-only + 353 TD = 402 ADHD_Secondary = 0
 
 ## 1. Impact of motion QC on sample size
 ```{r,  results="asis"}
@@ -167,19 +152,13 @@ summary(tabN,
         title='Proportion of complete cases included/excluded by motion QC',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
 
-tabASDonly<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
-                                                                    Diagnosis3Levels=="ASD-only"))
+tabASD<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
+                                                                    PrimaryDiagnosis=="ASD"))
 
-summary(tabASDonly,  
-        title = "Proportion of ASD-only complete cases included/excluded",
+summary(tabASD,  
+        title = "Proportion of ASD complete cases included/excluded",
         digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
-tabASDco<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
-                                                                    Diagnosis3Levels=="ASD+ADHD"))
-
-summary(tabASDco,  
-        title = "Proportion of ASD+ADHD complete cases included/excluded",
-        digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
 tabTD<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
                                                                     PrimaryDiagnosis=="TD"))
@@ -340,7 +319,7 @@ graph <- grViz("digraph flowchart {
 
 graph %>% export_svg() %>% 
   charToRaw() %>% 
-  rsvg_png("Figures/exclusionFlowChart.png", width = 1500)
+  rsvg_png("Figures/exclusionFlowChart.png", width = 1500, heigh = 300)
 
 graph
 
@@ -355,8 +334,8 @@ My_Theme_prop = theme_light()+theme(
   axis.title.x = element_text(size = 12),
   axis.title.y = element_text(size = 10),
   plot.title = element_text(size = 30),
-  axis.text.x = element_text(size = 8),
-  axis.text.y = element_text(size = 8),
+  axis.text.x = element_text(size = 10),
+  axis.text.y = element_text(size = 10),
   strip.text.x = element_text(size = 10,color="black"),
   strip.background = element_rect(fill="white"))
 
@@ -367,11 +346,9 @@ My_Theme_prop = theme_light()+theme(
 motion <- filter(completeCases, Motion.Exclusion.Level!="None")
 motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
 
-motion$Diagnosis3Levels <- relevel(motion$Diagnosis3Levels, "TD")
+motion <- group_by(motion, PrimaryDiagnosis, Motion.Exclusion.Level, Included)
 
-motion <- group_by(motion, Diagnosis3Levels, Motion.Exclusion.Level, Included)
-
-dx_proportions <- ggplot(motion, aes(x = Diagnosis3Levels, fill = Included))+
+dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
   geom_bar(position = "fill", alpha = .6)+
   facet_grid(~Motion.Exclusion.Level)+
   scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
@@ -385,7 +362,7 @@ dx_proportions <- ggplot(motion, aes(x = Diagnosis3Levels, fill = Included))+
   theme(axis.title.x = element_blank())+
   theme(axis.text.x = element_text(size = 10))
   
-png("Figures/fig_propExcludedDx3_cc.png",width=3,height=2,units="in",res=200)
+png("Figures/fig_propExcludedDx_cc.png",width=3,height=2,units="in",res=200)
 dx_proportions
 invisible(dev.off())
 
@@ -400,14 +377,14 @@ dx_proportions <- dx_proportions +
 extib <- tibble(motion)
 
 exNest <- extib %>% 
-  select(c("Diagnosis3Levels",
+  select(c("PrimaryDiagnosis",
            "Motion.Exclusion.Level", "Included")) %>% 
   group_by(Motion.Exclusion.Level) %>% 
   tidyr::nest()
 
 #nested models
 ex_chisq <- exNest %>% 
-  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$Diagnosis3Levels, .x$Included)))) %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$PrimaryDiagnosis, .x$Included)))) %>% 
   unnest(stats) 
 
 ex_chisq
@@ -416,76 +393,7 @@ ex_chisq
 
 The proportion of children excluded differs across diagnostic groups using both the lenient and strict motion QC.
 
-#### 1d.2 ASD only vs ASD+ADHD
-```{r}
-comorbid <- filter(motion, Diagnosis3Levels!="TD")
-comorbid$Diagnosis3Levels <- droplevels(comorbid$Diagnosis3Levels)
-levels(comorbid$Diagnosis3Levels)
-
-#comorbid <- filter(comorbid, !is.na(Diagnosis3Levels))
-
-coNest <- tibble(comorbid) %>% 
-  select(c("Diagnosis3Levels", "CurrentlyOnStimulants",
-           "Motion.Exclusion.Level", "Included")) %>% 
-  reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
-       measure.vars = c("Diagnosis3Levels", "CurrentlyOnStimulants")) %>% 
-  group_by(Motion.Exclusion.Level, variable) %>% 
-  tidyr::nest()
-
-#nested models
-co_chisq <- coNest %>% 
-  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$value, .x$Included)))) %>%
-  unnest(stats)
-
-co_chisq
-```
-
-#### 1d.3 TD vs ASD only 
-```{r}
-asdTD <- filter(motion, Diagnosis3Levels!="ASD+ADHD")
-asdTD$Diagnosis3Levels <- droplevels(asdTD$Diagnosis3Levels)
-levels(asdTD$Diagnosis3Levels)
-
-asdNest <- tibble(asdTD) %>% 
-  select(c("Diagnosis3Levels",
-           "Motion.Exclusion.Level", "Included")) %>% 
-  reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
-       measure.vars = c("Diagnosis3Levels")) %>% 
-  group_by(Motion.Exclusion.Level) %>% 
-  tidyr::nest()
-
-#nested models
-asd_chisq <- asdNest %>% 
-  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$value, .x$Included)))) %>%
-  unnest(stats)
-
-asd_chisq
-
-```
-
-#### 1d.4 TD vs ASD+ADHD
-```{r}
-coTD <- filter(motion, Diagnosis3Levels!="ASD")
-coTD$Diagnosis3Levels <- droplevels(coTD$Diagnosis3Levels)
-levels(coTD$Diagnosis3Levels)
-
-cotNest <- tibble(coTD) %>% 
-  select(c("Diagnosis3Levels",
-           "Motion.Exclusion.Level", "Included")) %>% 
-  reshape2::melt(id.vars = c("Motion.Exclusion.Level", "Included"),
-       measure.vars = c("Diagnosis3Levels")) %>% 
-  group_by(Motion.Exclusion.Level) %>% 
-  tidyr::nest()
-
-#nested models
-cot_chisq <- cotNest %>% 
-  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$value, .x$Included)))) %>%
-  unnest(stats)
-
-cot_chisq
-```
-
-#### 1d.5 Proportion excluded by Currently on stimulants in ASD group
+#### 1d.2 Currently on Stimulants
 ```{r}
 stim <- filter(motion, PrimaryDiagnosis=="ASD")
 stim$PrimaryDiagnosis <- droplevels(stim$PrimaryDiagnosis)
@@ -494,8 +402,22 @@ levels(stim$CurrentlyOnStimulants)
 
 levels(stim$CurrentlyOnStimulants) = c("No", "Yes")
 
-stim <- filter(stim, !is.na(CurrentlyOnStimulants))
+stimNest <- tibble(stim) %>% 
+  select(c("CurrentlyOnStimulants",
+           "Motion.Exclusion.Level", "Included")) %>% 
+  group_by(Motion.Exclusion.Level) %>% 
+  tidyr::nest()
 
+#nested models
+stim_chisq <- stimNest %>% 
+  mutate(stats = map(data, ~broom::tidy(chisq.test(.x$CurrentlyOnStimulants, .x$Included)))) %>%
+  unnest(stats)
+
+stim_chisq
+```
+
+#### 1d.5 Proportion excluded by Currently on stimulants in ASD group
+```{r}
 stim_proportions <- ggplot(stim, aes(x = CurrentlyOnStimulants, fill = Included))+
   geom_bar(position = "fill", alpha = .6)+
   facet_grid(~Motion.Exclusion.Level)+
@@ -507,25 +429,24 @@ stim_proportions <- ggplot(stim, aes(x = CurrentlyOnStimulants, fill = Included)
   #theme(legend.position="top")+
   theme(legend.text = element_text(size=7))+
   ylab("Proportion of Autistic Children")+
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  theme(strip.text.x = element_blank())
   #theme(plot.margin = unit(c(1, 6, 1, 6), "cm"))
 
 prop_legend = cowplot::get_legend(stim_proportions + guides(color = guide_legend(ncol = 1))+
-                                    theme(legend.position = "right", 
-                                          legend.text = element_text(size = 9),
+                                    theme(legend.position = "bottom", 
+                                          legend.text = element_text(size = 11),
                                           legend.key.size=unit(.1, "in")))
 
 ```
 
-#### 1d.6 Combine proportion plots into one figure & save
-```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 3}
-props <- cowplot::plot_grid(dx_proportions, stim_proportions, ncol=2, 
-                   rel_widths=c(3/5, 2/5), labels = c("","", ""))
-png("Figures/fig_propExcluded_cc.png",width=8,height=3,units="in",res=200)
-cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
+#### 1d.6 Combine proportion plot with legend & save
+```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 4, fig.height = 2}
+png("Figures/fig_propExcluded_cc.png",width=4,height=2,units="in",res=200)
+cowplot::plot_grid(dx_proportions, prop_legend, nrow=2, rel_heights = c(1, .1))
 invisible(dev.off())
 
-complete_props <- cowplot::plot_grid(props, prop_legend, ncol=2, rel_widths = c(1, .1))
+complete_props <- cowplot::plot_grid(dx_proportions, prop_legend, nrow=2, rel_heights = c(1, .1))
 complete_props
 
 ```
