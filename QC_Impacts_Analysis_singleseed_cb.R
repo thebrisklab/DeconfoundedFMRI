@@ -222,8 +222,12 @@ propensities.gam=predict(gam.prop.model,type='response')
 
 (propensity.KKI = mcSuperLearner(Y = Delta.KKI, X = gn.xmat, family=binomial(link='logit'),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method='method.CC_nloglik')) # 10-fold CV
 
-# check positivity assumption:
+# check stability of propensities:
 min(propensity.KKI$SL.predict[Delta.KKI==1])
+
+# examine if there is a positive probability of usability among all data (positivity):
+min(propensity.KKI$SL.predict)
+
 propensities.SL = propensity.KKI$SL.predict
 summary(rocit(score=propensities.glm,class=Delta.KKI,method='nonparametric'))
 summary(rocit(score=propensities.gam,class=Delta.KKI,method='nonparametric'))
