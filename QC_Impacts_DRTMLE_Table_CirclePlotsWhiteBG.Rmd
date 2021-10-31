@@ -206,31 +206,6 @@ fdr20.edges.naive = which(results.ave$p.naive.fdr<.20)
 
 ```
 
-
-#### Create table displaying group Z-statistics from DRTMLE for edges showing a group difference at FDR=.05
-```{r, results="asis"}
-# group means for edges showing a group difference using DRTMLE:
-results.sigEdges = results.ave[fdr05.edges.SL,c(1,8:9,13,15,17)]
-
-results.sigEdges <-   results.sigEdges[order(results.sigEdges$p.naive.fdr), ]
-
-names(results.sigEdges)[1] = "Edge"
-names(results.sigEdges)[2] = "ASD mean"
-names(results.sigEdges)[3] = "TD mean"
-names(results.sigEdges)[4] = "ASD-TD Z"
-names(results.sigEdges)[5] = "naive FDR-adjusted p"
-names(results.sigEdges)[6] = "SL FDR-adjusted p"
-
-knitr::kable(results.sigEdges, format="markdown")
-
-```
-
-#### Create latex version for paper
-```{r}
-tab <- knitr::kable(results.sigEdges, format="latex")
-print(tab, type="latex")
-```
-
 #### Remove background from .pngs of IC maps
 ```{r}
 #create directory to save pngs with transparent background
@@ -278,7 +253,7 @@ myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p
 # group means for edges showing a group difference using DRTMLE:
 results.sigEdges = results.ave[fdr20.edges.SL,c(1,8:9,13,15, 17)]
 
-results.sigEdges <-   results.sigEdges[order(results.sigEdges$p.naive.fdr), ]
+results.sigEdges <-   results.sigEdges[order(results.sigEdges$p.SL.fdr), ]
 
 names(results.sigEdges)[1] = "Edge"
 names(results.sigEdges)[2] = "ASD mean"
@@ -291,6 +266,10 @@ names(results.sigEdges)[6] = "SL FDR-adjusted p"
 knitr::kable(results.sigEdges, format="markdown")
 
 ```
+
+DRTMLE indicates a significant deconfounded group difference for the first four edges at the FDR=.05 level and an additional seven edges at the FDR=.20 level.
+
+Mean functional connectivity scores further from zero reflect stronger functional connectivity regardless of sign; positive scores reflect positive partial correlations, or more integrated intrinsic activity between ICs. Negative scores reflect negative partial correlations, or more segregated intrinsic activity between ICs.
 
 #### Create latex version for paper
 ```{r}

@@ -359,87 +359,6 @@ fdr05.edges.naive = which(results.ave$p.naive.fdr&lt;.05)
 fdr20.edges.SL = which(results.ave$p.SL.fdr&lt;.20) 
 fdr20.edges.naive = which(results.ave$p.naive.fdr&lt;.20) </code></pre>
 </div>
-<div id="create-table-displaying-group-z-statistics-from-drtmle-for-edges-showing-a-group-difference-at-fdr.05" class="section level4">
-<h4>Create table displaying group Z-statistics from DRTMLE for edges showing a group difference at FDR=.05</h4>
-<pre class="r"><code># group means for edges showing a group difference using DRTMLE:
-results.sigEdges = results.ave[fdr05.edges.SL,c(1,8:9,13,15,17)]
-
-results.sigEdges &lt;-   results.sigEdges[order(results.sigEdges$p.naive.fdr), ]
-
-names(results.sigEdges)[1] = &quot;Edge&quot;
-names(results.sigEdges)[2] = &quot;ASD mean&quot;
-names(results.sigEdges)[3] = &quot;TD mean&quot;
-names(results.sigEdges)[4] = &quot;ASD-TD Z&quot;
-names(results.sigEdges)[5] = &quot;naive FDR-adjusted p&quot;
-names(results.sigEdges)[6] = &quot;SL FDR-adjusted p&quot;
-
-knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
-<table>
-<thead>
-<tr class="header">
-<th align="left">Edge</th>
-<th align="right">ASD mean</th>
-<th align="right">TD mean</th>
-<th align="right">ASD-TD Z</th>
-<th align="right">naive FDR-adjusted p</th>
-<th align="right">SL FDR-adjusted p</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">r.ic2.ic27</td>
-<td align="right">-0.04</td>
-<td align="right">-0.02</td>
-<td align="right">-3.60</td>
-<td align="right">0.008</td>
-<td align="right">0.024</td>
-</tr>
-<tr class="even">
-<td align="left">r.ic14.ic19</td>
-<td align="right">0.07</td>
-<td align="right">0.08</td>
-<td align="right">-3.84</td>
-<td align="right">0.058</td>
-<td align="right">0.019</td>
-</tr>
-<tr class="odd">
-<td align="left">r.ic13.ic26</td>
-<td align="right">-0.03</td>
-<td align="right">-0.04</td>
-<td align="right">3.30</td>
-<td align="right">0.139</td>
-<td align="right">0.037</td>
-</tr>
-<tr class="even">
-<td align="left">r.ic4.ic17</td>
-<td align="right">-0.07</td>
-<td align="right">-0.08</td>
-<td align="right">3.45</td>
-<td align="right">0.139</td>
-<td align="right">0.029</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div id="create-latex-version-for-paper" class="section level4">
-<h4>Create latex version for paper</h4>
-<pre class="r"><code>tab &lt;- knitr::kable(results.sigEdges, format=&quot;latex&quot;)
-print(tab, type=&quot;latex&quot;)</code></pre>
-<pre><code>## 
-## \begin{tabular}{l|r|r|r|r|r}
-## \hline
-## Edge &amp; ASD mean &amp; TD mean &amp; ASD-TD Z &amp; naive FDR-adjusted p &amp; SL FDR-adjusted p\\
-## \hline
-## r.ic2.ic27 &amp; -0.04 &amp; -0.02 &amp; -3.60 &amp; 0.008 &amp; 0.024\\
-## \hline
-## r.ic14.ic19 &amp; 0.07 &amp; 0.08 &amp; -3.84 &amp; 0.058 &amp; 0.019\\
-## \hline
-## r.ic13.ic26 &amp; -0.03 &amp; -0.04 &amp; 3.30 &amp; 0.139 &amp; 0.037\\
-## \hline
-## r.ic4.ic17 &amp; -0.07 &amp; -0.08 &amp; 3.45 &amp; 0.139 &amp; 0.029\\
-## \hline
-## \end{tabular}</code></pre>
-</div>
 <div id="remove-background-from-.pngs-of-ic-maps" class="section level4">
 <h4>Remove background from .pngs of IC maps</h4>
 <pre class="r"><code>#create directory to save pngs with transparent background
@@ -452,12 +371,12 @@ dir.create(&quot;./ic_pngs_noBG&quot;)</code></pre>
     )
   head(DATA)</code></pre>
 <pre><code>##             images names values
-## 1 ic_pngs/ic01.png    01     31
-## 2 ic_pngs/ic02.png    02     23
-## 3 ic_pngs/ic04.png    04     73
-## 4 ic_pngs/ic08.png    08     22
-## 5 ic_pngs/ic13.png    13     63
-## 6 ic_pngs/ic14.png    14     93</code></pre>
+## 1 ic_pngs/ic01.png    01     83
+## 2 ic_pngs/ic02.png    02      1
+## 3 ic_pngs/ic04.png    04     67
+## 4 ic_pngs/ic08.png    08     18
+## 5 ic_pngs/ic13.png    13      5
+## 6 ic_pngs/ic14.png    14     57</code></pre>
 <pre class="r"><code>for(iimg in seq(1:nrow(DATA))) {
  img_data &lt;- magick::image_read(DATA$images[iimg])
  new_img &lt;- magick::image_transparent(img_data, &#39;black&#39;)
@@ -490,7 +409,7 @@ dev.off()</code></pre>
 <pre class="r"><code># group means for edges showing a group difference using DRTMLE:
 results.sigEdges = results.ave[fdr20.edges.SL,c(1,8:9,13,15, 17)]
 
-results.sigEdges &lt;-   results.sigEdges[order(results.sigEdges$p.naive.fdr), ]
+results.sigEdges &lt;-   results.sigEdges[order(results.sigEdges$p.SL.fdr), ]
 
 names(results.sigEdges)[1] = &quot;Edge&quot;
 names(results.sigEdges)[2] = &quot;ASD mean&quot;
@@ -514,14 +433,6 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">r.ic2.ic27</td>
-<td align="right">-0.04</td>
-<td align="right">-0.02</td>
-<td align="right">-3.60</td>
-<td align="right">0.008</td>
-<td align="right">0.024</td>
-</tr>
-<tr class="even">
 <td align="left">r.ic14.ic19</td>
 <td align="right">0.07</td>
 <td align="right">0.08</td>
@@ -529,13 +440,21 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 <td align="right">0.058</td>
 <td align="right">0.019</td>
 </tr>
+<tr class="even">
+<td align="left">r.ic2.ic27</td>
+<td align="right">-0.04</td>
+<td align="right">-0.02</td>
+<td align="right">-3.60</td>
+<td align="right">0.008</td>
+<td align="right">0.024</td>
+</tr>
 <tr class="odd">
-<td align="left">r.ic19.ic25</td>
-<td align="right">-0.09</td>
-<td align="right">-0.09</td>
-<td align="right">2.88</td>
-<td align="right">0.126</td>
-<td align="right">0.090</td>
+<td align="left">r.ic4.ic17</td>
+<td align="right">-0.07</td>
+<td align="right">-0.08</td>
+<td align="right">3.45</td>
+<td align="right">0.139</td>
+<td align="right">0.029</td>
 </tr>
 <tr class="even">
 <td align="left">r.ic13.ic26</td>
@@ -546,22 +465,6 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 <td align="right">0.037</td>
 </tr>
 <tr class="odd">
-<td align="left">r.ic14.ic21</td>
-<td align="right">0.05</td>
-<td align="right">0.05</td>
-<td align="right">-2.87</td>
-<td align="right">0.139</td>
-<td align="right">0.090</td>
-</tr>
-<tr class="even">
-<td align="left">r.ic4.ic17</td>
-<td align="right">-0.07</td>
-<td align="right">-0.08</td>
-<td align="right">3.45</td>
-<td align="right">0.139</td>
-<td align="right">0.029</td>
-</tr>
-<tr class="odd">
 <td align="left">r.ic19.ic26</td>
 <td align="right">0.04</td>
 <td align="right">0.03</td>
@@ -570,20 +473,20 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 <td align="right">0.070</td>
 </tr>
 <tr class="even">
-<td align="left">r.ic17.ic24</td>
-<td align="right">0.00</td>
-<td align="right">0.00</td>
-<td align="right">-2.54</td>
-<td align="right">0.432</td>
-<td align="right">0.163</td>
+<td align="left">r.ic14.ic21</td>
+<td align="right">0.05</td>
+<td align="right">0.05</td>
+<td align="right">-2.87</td>
+<td align="right">0.139</td>
+<td align="right">0.090</td>
 </tr>
 <tr class="odd">
-<td align="left">r.ic8.ic22</td>
-<td align="right">0.02</td>
-<td align="right">0.03</td>
-<td align="right">-2.52</td>
-<td align="right">0.432</td>
-<td align="right">0.163</td>
+<td align="left">r.ic19.ic25</td>
+<td align="right">-0.09</td>
+<td align="right">-0.09</td>
+<td align="right">2.88</td>
+<td align="right">0.126</td>
+<td align="right">0.090</td>
 </tr>
 <tr class="even">
 <td align="left">r.ic8.ic25</td>
@@ -601,10 +504,28 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 <td align="right">0.623</td>
 <td align="right">0.163</td>
 </tr>
+<tr class="even">
+<td align="left">r.ic17.ic24</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">-2.54</td>
+<td align="right">0.432</td>
+<td align="right">0.163</td>
+</tr>
+<tr class="odd">
+<td align="left">r.ic8.ic22</td>
+<td align="right">0.02</td>
+<td align="right">0.03</td>
+<td align="right">-2.52</td>
+<td align="right">0.432</td>
+<td align="right">0.163</td>
+</tr>
 </tbody>
 </table>
+<p>DRTMLE indicates a significant deconfounded group difference for the first four edges at the FDR=.05 level and an additional seven edges at the FDR=.20 level.</p>
+<p>Mean functional connectivity scores further from zero reflect stronger functional connectivity regardless of sign; positive scores reflect positive partial correlations, or more integrated intrinsic activity between ICs. Negative scores reflect negative partial correlations, or more segregated intrinsic activity between ICs.</p>
 </div>
-<div id="create-latex-version-for-paper-1" class="section level4">
+<div id="create-latex-version-for-paper" class="section level4">
 <h4>Create latex version for paper</h4>
 <pre class="r"><code>tab &lt;- knitr::kable(results.sigEdges, format=&quot;latex&quot;)
 print(tab, type=&quot;latex&quot;)</code></pre>
@@ -613,27 +534,27 @@ print(tab, type=&quot;latex&quot;)</code></pre>
 ## \hline
 ## Edge &amp; ASD mean &amp; TD mean &amp; ASD-TD Z &amp; naive FDR-adjusted p &amp; SL FDR-adjusted p\\
 ## \hline
-## r.ic2.ic27 &amp; -0.04 &amp; -0.02 &amp; -3.60 &amp; 0.008 &amp; 0.024\\
-## \hline
 ## r.ic14.ic19 &amp; 0.07 &amp; 0.08 &amp; -3.84 &amp; 0.058 &amp; 0.019\\
 ## \hline
-## r.ic19.ic25 &amp; -0.09 &amp; -0.09 &amp; 2.88 &amp; 0.126 &amp; 0.090\\
-## \hline
-## r.ic13.ic26 &amp; -0.03 &amp; -0.04 &amp; 3.30 &amp; 0.139 &amp; 0.037\\
-## \hline
-## r.ic14.ic21 &amp; 0.05 &amp; 0.05 &amp; -2.87 &amp; 0.139 &amp; 0.090\\
+## r.ic2.ic27 &amp; -0.04 &amp; -0.02 &amp; -3.60 &amp; 0.008 &amp; 0.024\\
 ## \hline
 ## r.ic4.ic17 &amp; -0.07 &amp; -0.08 &amp; 3.45 &amp; 0.139 &amp; 0.029\\
 ## \hline
+## r.ic13.ic26 &amp; -0.03 &amp; -0.04 &amp; 3.30 &amp; 0.139 &amp; 0.037\\
+## \hline
 ## r.ic19.ic26 &amp; 0.04 &amp; 0.03 &amp; 3.05 &amp; 0.228 &amp; 0.070\\
 ## \hline
-## r.ic17.ic24 &amp; 0.00 &amp; 0.00 &amp; -2.54 &amp; 0.432 &amp; 0.163\\
+## r.ic14.ic21 &amp; 0.05 &amp; 0.05 &amp; -2.87 &amp; 0.139 &amp; 0.090\\
 ## \hline
-## r.ic8.ic22 &amp; 0.02 &amp; 0.03 &amp; -2.52 &amp; 0.432 &amp; 0.163\\
+## r.ic19.ic25 &amp; -0.09 &amp; -0.09 &amp; 2.88 &amp; 0.126 &amp; 0.090\\
 ## \hline
 ## r.ic8.ic25 &amp; -0.05 &amp; -0.04 &amp; -2.76 &amp; 0.432 &amp; 0.111\\
 ## \hline
 ## r.ic17.ic22 &amp; -0.04 &amp; -0.03 &amp; -2.57 &amp; 0.623 &amp; 0.163\\
+## \hline
+## r.ic17.ic24 &amp; 0.00 &amp; 0.00 &amp; -2.54 &amp; 0.432 &amp; 0.163\\
+## \hline
+## r.ic8.ic22 &amp; 0.02 &amp; 0.03 &amp; -2.52 &amp; 0.432 &amp; 0.163\\
 ## \hline
 ## \end{tabular}</code></pre>
 </div>
