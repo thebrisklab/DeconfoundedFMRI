@@ -35,7 +35,7 @@ library(arsenal)
 ```
 
 #### Define geom_split_violin()
-Based on https://debruine.github.io/posts/plot-comparison/
+Based on https://debruine.github.io/post/plot-comparison/
 ```{r, tidy=TRUE}
 GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, draw_group = function(self, data, ..., draw_quantiles = NULL){
   data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
@@ -183,7 +183,7 @@ summary(tabNScans,
 
 ```
 
-85 of the complete cases (66 typically developing, 19 ASD) attempted more than one resting-state fMRI scan.
+85 of the complete cases (66 typically developing, 19 ASD) attempted more than one resting-state fMRI scan. Most participants with multiple attempts had two scans.
 
 #### Table 1. Summarize socio-demographic characteristics of the complete predictor cases for paper
 ```{r, results="asis"}
@@ -356,7 +356,7 @@ My_Theme_prop = theme_light()+theme(
   axis.text.x = element_text(size = 10),
   axis.text.y = element_text(size = 10),
   strip.text.x = element_text(size = 12,color="black"),
-  strip.background = element_rect(fill="white"))
+  strip.background = element_rect(fill = "white"))
 
 ```
 
