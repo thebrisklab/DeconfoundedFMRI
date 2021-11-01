@@ -19,6 +19,7 @@ library(circlize)
 library(png)
 #to remove background from .pngs
 library(colordistance)
+library(wesanderson)
 ```
 
 #### Define Circle plot functions:
@@ -50,11 +51,13 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   # alpha: pvalue threshold
   # alphaname: column of data with pvalues
   
+  #
+  
   ## Set transparent color, used to mask unwanted chords
   trcol <- t_col("white", perc = 100, name = "white")
   
   ## Set colors for negative and positive values
-  poscol <- t_col("deepskyblue", perc = 15, name = "lt.blue") #positive correlation color
+  poscol <- t_col("DodgerBlue4", perc = 15, name = "lt.blue") #positive correlation color
   negcol <- t_col("red", perc = 15, name = "lt.red") #negative correlation color
   
   ## Set names for networks (netLab)
@@ -71,13 +74,29 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   # Assign group in the original data frame
   DATA$Group = netLab %>% as.factor()
   
+  nGroups = length(unique(DATA$Group))
+  
   # Get colours, turn the vector into characters, and then use the factor numbers of DATA$Group to assign colour.
-  DATA$gColor = rainbow(7) %>% as.character %>% 
+  
+  cColors = wes_palette("FantasticFox1", nGroups, type = 'continuous')
+  
+  DATA$gColor = cColors %>% as.character %>% 
     .[as.numeric(DATA$Group)]
+  
+  #DATA$gColor = rainbow(nGroups) %>% as.character %>% 
+   # .[as.numeric(DATA$Group)]
   
   #### arrange circle plot by group
   oDATA = DATA %>% arrange(Group)
   
+  #### define small gap between ICs and big gap between networks
+  smallGap = 1
+  bigGap = 7
+  sectorGap = rep(bigGap, nrow(DATA))
+  
+  for (ig in 1:nrow(DATA)-1){
+    sectorGap[ig] = ifelse(oDATA$Group[ig+1]==oDATA$Group[ig], smallGap, bigGap)
+  }
   
   ############################################
   # Create the weighted adjacency matrix:
@@ -108,6 +127,9 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   
   ## Set plot background to white
   par(bg = 'white')
+  
+  ## 
+  circos.par(gap.after = sectorGap)
   
   ##plot updated Chord diagram with new colors
   myPlot = chordDiagram(PAIRS, annotationTrack = c("grid"), 
@@ -230,10 +252,15 @@ for(iimg in seq(1:nrow(DATA))) {
 #### Naive ASD-TD Z-Statistic FDR=0.05
 ```{r, fig.width=5, fig.height=5}
 png("Application_Figures/Naive_zstat_groupdifference_fdr05.png",width=5,height=5,units="in",res=200)
+
 myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.05,alphaname='p.naive.fdr', title='A. Naive Z-Statistic, ASD-TD')
 dev.off()
 
+circos.clear()
+
 myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.05,alphaname='p.naive.fdr',title='A. Naive Z-Statistic, ASD-TD, FDR=0.05')
+
+circos.clear()
 
 ```
 
@@ -244,7 +271,11 @@ png("Application_Figures/DRTMLE_zstat_groupdifference_fdr05.png",width=5,height=
 myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD')
 dev.off()
 
+circos.clear()
+
 myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.05')
+
+circos.clear()
 
 ```
 
@@ -285,7 +316,11 @@ png("Application_Figures/Naive_zstat_groupdifference_fdr20.png",width=5,height=5
 myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.20,alphaname='p.naive.fdr', title='A. Naive Z-Statistic, ASD-TD')
 dev.off()
 
+circos.clear()
+
 myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.20,alphaname='p.naive.fdr',title='A. Naive Z-Statistic, ASD-TD, FDR=0.20')
+
+circos.clear()
 
 
 ```
@@ -297,7 +332,11 @@ png("Application_Figures/DRTMLE_zstat_groupdifference_fdr20.png",width=5,height=
 myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD')
 dev.off()
 
+circos.clear()
+
 myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.02')
+
+circos.clear()
 
 ```
 
