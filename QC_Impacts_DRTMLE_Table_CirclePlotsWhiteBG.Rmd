@@ -89,7 +89,10 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   #### arrange circle plot by group
   oDATA = DATA %>% arrange(Group)
   
-  #### define small gap between ICs and big gap between networks
+  #### Define small gap between ICs and big gap between networks
+  # sectorGap[1] is the gap after the first sector
+  # sectorGap[end] should be bigGap
+  
   smallGap = 1
   bigGap = 7
   sectorGap = rep(bigGap, nrow(DATA))
