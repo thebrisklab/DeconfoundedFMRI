@@ -225,7 +225,7 @@ print(tab, type="latex")
 
 ### 3.1.1. The impact of motion QC on sample size
 #### Figure 1a. Exclusion flowchart
-```{r, echo=FALSE, dev='png'}
+```{r, fig1a, echo=FALSE, dev='png'}
 #total number of scans attempted
 nAttempted <- qcMelt %>% 
   filter(Motion.Exclusion.Level=="None") %>% 
@@ -351,7 +351,7 @@ graph
 My_Theme_prop = theme_light()+theme(
   legend.title =element_blank(),
   axis.title.x = element_text(size = 12),
-  axis.title.y = element_text(size = 10),
+  axis.title.y = element_text(size = 11),
   plot.title = element_text(size = 30),
   axis.text.x = element_text(size = 10),
   axis.text.y = element_text(size = 10),
@@ -361,7 +361,7 @@ My_Theme_prop = theme_light()+theme(
 ```
 
 #### Figure 1b. Plot proportions
-```{r, tidy=TRUE, fig.width=4, fig.height=2.5}
+```{r, fig1b, tidy=TRUE, fig.width=4, fig.height=2.5}
 motion <- filter(completeCases, Motion.Exclusion.Level!="None")
 motion$Motion.Exclusion.Level <- droplevels(motion$Motion.Exclusion.Level)
 
@@ -377,7 +377,7 @@ dx_proportions <- ggplot(motion, aes(x = PrimaryDiagnosis, fill = Included))+
   ylab("Proportion of Children")+
   theme(legend.position = "bottom")+
   theme(legend.margin = margin(t=0, r=0, b=-1, l=-1))+
-  theme(legend.key.size=unit(.1, "in"), legend.text = element_text(size = 10))+  
+  theme(legend.key.size=unit(.15, "in"), legend.text = element_text(size = 11))+  
   theme(axis.title.x = element_blank())+
   theme(axis.text.x = element_text(size = 10))
   
@@ -656,7 +656,7 @@ p_gai <- ggplot(gai, aes(x=range, y=fit))+
   theme(plot.title = element_text(size = 11, hjust = 0.5))+
   theme(axis.title.y = element_blank())
 
-p_legend = cowplot::get_legend(p_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 10),   legend.key.size=unit(.1, "in")))
+p_legend = cowplot::get_legend(p_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 11),   legend.key.size=unit(.15, "in")))
 
 ```
 
@@ -839,7 +839,7 @@ d_gai=ggplot(ddata, aes(x=value, fill=PrimaryDiagnosis, color=PrimaryDiagnosis))
   labs(x='')+  
   theme(axis.title.y = element_blank())
 
-hist_legend = cowplot::get_legend(d_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 10),   legend.key.size=unit(.1, "in")))
+hist_legend = cowplot::get_legend(d_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 11),   legend.key.size=unit(.15, "in")))
 
 ```
 
@@ -858,7 +858,7 @@ cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=
 #dev.off()
 
 ```
-NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for deconfounded group difference)
+NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for the DRTMLE of the deconfounded group difference)
 
 ### 3.1.3. Phenotype and age representations differ between included and excluded children
 #### Figure 3. Split violin plots
@@ -1380,7 +1380,7 @@ hist_gai_p=ggplot(pdat, aes(x=p.value, fill=Motion.Exclusion.Level, color=Motion
   theme(legend.position = "none")+
   theme(axis.title.x = element_text(size = 7))
 
-hist_p_legend <- cowplot::get_legend(hist_gai_p + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 10),   legend.key.size=unit(.1, "in"), legend.title = element_blank()))
+hist_p_legend <- cowplot::get_legend(hist_gai_p + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 11),   legend.key.size=unit(.15, "in"), legend.title = element_blank()))
 
 
 ```

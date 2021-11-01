@@ -269,7 +269,7 @@ knitr::kable(results.sigEdges, format="markdown")
 
 DRTMLE indicates a significant deconfounded group difference for the first four edges at the FDR=.05 level and an additional seven edges at the FDR=.20 level.
 
-Mean functional connectivity scores further from zero reflect stronger functional connectivity regardless of sign; positive scores reflect positive partial correlations, or more integrated intrinsic activity between ICs. Negative scores reflect negative partial correlations, or more segregated intrinsic activity between ICs.
+Mean functional connectivity group estimates further from zero reflect stronger functional connectivity regardless of sign; positive scores reflect positive partial correlations, or more integrated intrinsic activity between independent components (ICs). Negative scores reflect negative partial correlations, or more segregated intrinsic activity between ICs.
 
 #### Create latex version for paper
 ```{r}

@@ -1,10 +1,12 @@
 # brisk
 # This code is modified to be used locally or on a cluster. 
+#seedID = 1;
 
 
 # Change this for cluster or local:
 #setwd('~/Dropbox/QualityControlImpactsFMRI')
 setwd('~/risk_share/QualityControlImpacts')
+#setwd('~/Github/DeconfoundedFMRI')
 save.input.data = FALSE
 #save.input.data = TRUE
 
@@ -66,6 +68,7 @@ table(dat$PrimaryDiagnosis[dat$Ciric_length=='Pass'])
 
 # subset to signal components:
 ic_class = read_excel('./DeconfoundedFMRI/componentLabels_pca85_ica30.xlsx')
+#ic_class = read_excel('./componentLabels_pca85_ica30.xlsx')
 
 # create names we want to exclude:
 artifacts = c(1:nrow(ic_class))[ic_class$signal==0]
@@ -109,6 +112,8 @@ table(is.na(dat2[,startEdgeidx]) & dat2$KKI_criteria=='Pass')
 # contains the residuals from the three motion variables
 temp = dat2[,c('PrimaryDiagnosis','MeanFramewiseDisplacement','MaxFramewiseDisplacement',"FramesWithFDLessThanOrEqualTo250microns","Sex","Race2","SES.Family","ic1.ic2")]
 completeCases = complete.cases(temp)
+
+#nrow(temp[is.na(temp$ic1.ic2) ,])
 
 t.values.lm=NULL
 t.values.naive=NULL
@@ -331,8 +336,16 @@ for (edgeidx in 1:nEdges) {
                               SL_gr = "SL.npreg",
                               maxIter = 1 # between 1 and 3 is probably fine
                               )
-    
-      mean_fconn_td.SL <- drtmle(Y = dat3[idx.all.cc.td,dat3.edgeidx],A = dat3[idx.all.cc.td,c('Delta.KKI')], W = NULL, a_0 = 1, Qn = list(Qbar.SL.td), gn = list(dat3$propensities.SL[idx.all.cc.td]), SL_Qr = "SL.npreg", SL_gr = "SL.npreg", maxIter = 1)
+  
+  mean_fconn_td.SL <- drtmle(Y = dat3[idx.all.cc.td,dat3.edgeidx],
+                             A = dat3[idx.all.cc.td,c('Delta.KKI')], 
+                             W = NULL, 
+                             a_0 = 1, 
+                             Qn = list(Qbar.SL.td), 
+                             gn = list(dat3$propensities.SL[idx.all.cc.td]), 
+                             SL_Qr = "SL.npreg", 
+                             SL_gr = "SL.npreg", 
+                             maxIter = 1)
       
       results.df[edgeidx,'mean.ASD.SL'] = mean_fconn_asd.SL$drtmle$est
       results.df[edgeidx,'mean.TD.SL'] = mean_fconn_td.SL$drtmle$est
