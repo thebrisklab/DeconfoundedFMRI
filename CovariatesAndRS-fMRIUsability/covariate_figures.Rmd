@@ -861,6 +861,127 @@ cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=
 NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for the DRTMLE of the deconfounded group difference)
 
 ### 3.1.3. Phenotype and age representations differ between included and excluded children
+#### 3.1.3. Mann-Whitney U tests to compare included vs excluded participants using lenient motion QC (13 tests)
+```{r}
+#run lenient tests first
+aim1tib <- tibble(aim1)
+
+aim1MW <- aim1tib %>% 
+  filter(Motion.Exclusion.Level=="Lenient") %>% 
+  group_by(PrimaryDiagnosis, variable) %>% 
+  tidyr::nest()
+
+#hypothesis: included children will have less severe symptoms. NOTE: ADOS only collected in ASD (9 tests)
+nested_mw_less <- aim1MW %>% 
+  filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
+  "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
+  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMedian, excludedMedian))
+
+#hypothesis: included children will be older and have greater GAI (4 tests)
+nested_mw_greater<- aim1MW %>% 
+  filter(variable %in% c("Age", "GAI")) %>% 
+  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMedian, excludedMedian))
+
+complete_mw <- rbind(nested_mw_less, nested_mw_greater)
+
+hist(complete_mw$p.value,
+     main = "Mann-Whitney U test p values Using Lenient Motion QC")
+
+complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
+
+names(complete_mw)[which(names(complete_mw)=="statistic")]="U"
+
+#complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)]
+
+#sort by q-value/p.fdr to ease interpretation of fdr adjusted p values
+complete_mw[order(complete_mw$p.fdr, decreasing=FALSE), c(1:2, 7:10, 13)]
+
+#for the paper, sort by PrimaryDiagnosis
+xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)])
+
+#xtable(complete_mw[order(complete_mw$p.fdr, decreasing=FALSE), c(1:2, 7:10, 13)])
+
+aim1p = complete_mw[, c(1:2,7:8, 10,13)]
+
+aim1p$Motion.Exclusion.Level = rep("Lenient", nrow(aim1p))
+```
+
+9 of the 13 tests have an FDR-adjusted p value < .1. We expect roughly 1 of these (9*.1) to be a false positive.
+
+#### 3.1.3 Supplemental Table S2. Mann-Whitney U tests to compare included vs excluded participants using strict motion QC (13 tests)
+```{r, asis}
+#run tests using strict motion QC
+aim1MW <- aim1tib %>% 
+  filter(Motion.Exclusion.Level=="Strict") %>% 
+  group_by(variable, PrimaryDiagnosis) %>% 
+  tidyr::nest()
+
+#hypothesis: included children will have less severe symptoms
+nested_mw_less <- aim1MW %>% 
+  filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
+  "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
+  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMedian, excludedMedian))
+
+#hypothesis: included children will be older and have greater GAI
+nested_mw_greater<- aim1MW %>% 
+  filter(variable %in% c("Age", "GAI")) %>% 
+  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
+         idata = map(data, ~filter(., Included=="Included")),
+         edata = map(data, ~filter(., Included=="Excluded")),
+         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
+         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
+         coefs = map(mwm, tidy)) %>% 
+  unnest(c(coefs, includedMedian, excludedMedian))
+
+complete_mw <- rbind(nested_mw_less, nested_mw_greater)
+
+hist(complete_mw$p.value,
+     main = "Mann-Whitney U test p values Using Strict Motion QC")
+
+complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
+
+names(complete_mw)[which(names(complete_mw)=="statistic")]="U"
+
+#sort by q-value/p.fdr to ease interpretation of fdr adjusted p values
+complete_mw[order(complete_mw$p.fdr, decreasing=FALSE), c(1:2, 7:10, 13)]
+
+#for the paper, sort by PrimaryDiagnosis
+xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)])
+
+#xtable(complete_mw[order(complete_mw$p.fdr, decreasing=FALSE), c(1:2, 7:10, 13)])
+
+temp = complete_mw[, c(1:2,7:8,10,13)]
+temp$Motion.Exclusion.Level = rep("Strict", nrow(temp))
+
+aim1p <- rbind(aim1p, temp)
+aim1p$p.fdr = round(aim1p$p.fdr, 3)
+aim1p$p.signif = rep("", nrow(aim1p))
+aim1p$p.signif[aim1p$p.fdr<.1]="*"
+aim1p$p.signif[aim1p$p.fdr<.05]="**"
+
+#think I need this for add_pvalue?
+aim1p$Included = rep("Included", nrow(aim1p))
+
+```
+
 #### Figure 3. Split violin plots
 ```{r}
 My_Theme = theme_light()+theme(
@@ -883,12 +1004,25 @@ ados <- aim1 %>%
   filter(PrimaryDiagnosis=="ASD" & variable=="ADOS") %>% 
   dplyr::select(-c("PrimaryDiagnosis", "variable"))
 
-ados_violin <- ggplot(ados, aes(Motion.Exclusion.Level, value, fill = Included, color = Included)) +
+stat.test <- aim1p %>% filter(PrimaryDiagnosis=="ASD" & variable=="ADOS")
+stat.test$group1 = rep("Included", nrow(stat.test))
+stat.test$group2 = rep("null model", nrow(stat.test))
+stat.test <- select(stat.test, -p.fdr)
+stat.test$y.position = c(27, 27)
+
+paper_ados <- ggplot(ados, aes(Motion.Exclusion.Level, value, fill = Included, color = Included)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 1.5) +
   stat_summary(fun = "mean", position = position_dodge(width = 0.5), 
                color="black", geom="point", aes(y=value))+
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
                color="black", geom="errorbar", width=.2)+
+  #geom_mark_rect(aes(filter = Motion.Exclusion.Level =="Lenient"))+
+  ggprism::add_pvalue(stat.test,
+             x = "Motion.Exclusion.Level",
+             y.position = "y.position",
+             color="black",
+             label.size = 7)+
+  scale_y_continuous(limits=c(0,30),breaks = seq(0, 30 , by = 10))+  
   scale_fill_manual(values = c("#FDE599", "#9FB0CC"))+
   scale_color_manual(values = c("#E9D38D", "#8C9AB4"))+
   My_Theme+
@@ -901,6 +1035,14 @@ ados_violin <- ggplot(ados, aes(Motion.Exclusion.Level, value, fill = Included, 
 #### Figure 3b. SRS split violin
 ```{r}
 srs <- filter(aim1G, variable=="SRS")
+
+stat.test <- aim1p %>% filter(variable=="SRS")
+stat.test$group1 = rep("Included", nrow(stat.test))
+stat.test$group2 = rep("null model", nrow(stat.test))
+stat.test <- select(stat.test, -p.fdr)
+stat.test$y.position = c(142, 70, 142, 70)
+
+
 aim1_srs <- ggplot(srs, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
   facet_grid(PrimaryDiagnosis~., scales = "fixed")+
@@ -908,6 +1050,12 @@ aim1_srs <- ggplot(srs, aes(Motion.Exclusion.Level, value, fill = Included, colo
                color="black", geom="point", aes(y=value))+
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
                color="black", geom="errorbar", width=.2)+
+  ggprism::add_pvalue(stat.test,
+             x = "Motion.Exclusion.Level",
+             y.position = "y.position",
+             color="black",
+             label.size = 7)+
+  scale_y_continuous(limits=c(0, 150),breaks = seq(0, 100 , by = 50))+  
   # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
   # geom_pointrange(
   #  data = summary_pheno,
@@ -937,6 +1085,14 @@ with(dat3, table(PrimaryDiagnosis, is.na(SRS.Score)))
 #### Figure 3c. Inattention Split Violin
 ```{r}
 inat <- filter(aim1G, variable=="Inattention")
+
+stat.test <- aim1p %>% filter(variable=="Inattention")
+stat.test$group1 = rep("Included", nrow(stat.test))
+stat.test$group2 = rep("null model", nrow(stat.test))
+stat.test <- select(stat.test, -p.fdr)
+stat.test$y.position = c(20, 20, 20, 20)
+
+
 paper_inat <- ggplot(inat, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
   facet_grid(PrimaryDiagnosis~.)+
@@ -944,6 +1100,11 @@ paper_inat <- ggplot(inat, aes(Motion.Exclusion.Level, value, fill = Included, c
                color="black", geom="point", aes(y=value))+
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
                color="black", geom="errorbar", width=.2)+
+  ggprism::add_pvalue(stat.test,
+             x = "Motion.Exclusion.Level",
+             y.position = "y.position",
+             color="black",
+             label.size = 7)+
   # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
   #geom_pointrange(
   #  data = summary_pheno,
@@ -962,6 +1123,14 @@ paper_inat <- ggplot(inat, aes(Motion.Exclusion.Level, value, fill = Included, c
 #### Figure 3d. Hyperactivity/Impulsivity Spilt Violin
 ```{r}
 hyp <- filter(aim1G, variable=="Hyperactivity")
+
+stat.test <- aim1p %>% filter(variable=="Hyperactivity")
+stat.test$group1 = rep("Included", nrow(stat.test))
+stat.test$group2 = rep("null model", nrow(stat.test))
+stat.test <- select(stat.test, -p.fdr)
+stat.test$y.position = c(16, 16, 16, 16)
+
+
 paper_hyp <- ggplot(hyp, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
   facet_grid(PrimaryDiagnosis~.)+
@@ -969,6 +1138,11 @@ paper_hyp <- ggplot(hyp, aes(Motion.Exclusion.Level, value, fill = Included, col
                color="black", geom="point", aes(y=value))+
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
                color="black", geom="errorbar", width=.2)+
+  ggprism::add_pvalue(stat.test,
+             x = "Motion.Exclusion.Level",
+             y.position = "y.position",
+             color="black",
+             label.size = 7)+
   # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
   #geom_pointrange(
   #  data = summary_pheno,
@@ -987,6 +1161,14 @@ paper_hyp <- ggplot(hyp, aes(Motion.Exclusion.Level, value, fill = Included, col
 #### Figure 3e. Motor Overflow Split Violin
 ```{r}
 overflow <- filter(aim1G, variable=="Motor Overflow")
+
+stat.test <- aim1p %>% filter(variable=="Motor Overflow")
+stat.test$group1 = rep("Included", nrow(stat.test))
+stat.test$group2 = rep("null model", nrow(stat.test))
+stat.test <- select(stat.test, -p.fdr)
+stat.test$y.position = c(32, 31, 32, 31)
+
+
 aim1_of <- ggplot(overflow, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
   facet_grid(PrimaryDiagnosis~.)+
@@ -994,6 +1176,12 @@ aim1_of <- ggplot(overflow, aes(Motion.Exclusion.Level, value, fill = Included, 
                color="black", geom="point", aes(y=value))+
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
                color="black", geom="errorbar", width=.2)+
+  ggprism::add_pvalue(stat.test,
+             x = "Motion.Exclusion.Level",
+             y.position = "y.position",
+             color="black",
+             label.size = 7)+
+  scale_y_continuous(limits=c(0,35),breaks = seq(0, 40 , by = 10))+  
   # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
   #geom_pointrange(
   #  data = summary_pheno,
@@ -1012,6 +1200,14 @@ aim1_of <- ggplot(overflow, aes(Motion.Exclusion.Level, value, fill = Included, 
 #### Figure 3f. Age Split Violin
 ```{r}
 age <- filter(aim1G, variable=="Age")
+
+stat.test <- aim1p %>% filter(variable=="Age")
+stat.test$group1 = rep("Included", nrow(stat.test))
+stat.test$group2 = rep("null model", nrow(stat.test))
+stat.test <- select(stat.test, -p.fdr)
+stat.test$y.position = c(13.1, 13.1, 13.1, 13.1)
+
+
 aim1_age <- ggplot(age, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
   facet_grid(PrimaryDiagnosis~.)+
@@ -1019,6 +1215,12 @@ aim1_age <- ggplot(age, aes(Motion.Exclusion.Level, value, fill = Included, colo
                color="black", geom="point", aes(y=value))+
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
                color="black", geom="errorbar", width=.2)+
+  ggprism::add_pvalue(stat.test,
+             x = "Motion.Exclusion.Level",
+             y.position = "y.position",
+             color="black",
+             label.size = 7)+
+  scale_y_continuous(limits=c(8,14),breaks = seq(8, 14 , by = 1))+  
   # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
   #geom_pointrange(
   #  data = summary_pheno,
@@ -1037,6 +1239,14 @@ aim1_age <- ggplot(age, aes(Motion.Exclusion.Level, value, fill = Included, colo
 #### Figure 3g. GAI Split Violin
 ```{r}
 gai <- filter(aim1G, variable=="GAI")
+
+stat.test <- aim1p %>% filter(variable=="GAI")
+stat.test$group1 = rep("Included", nrow(stat.test))
+stat.test$group2 = rep("null model", nrow(stat.test))
+stat.test <- select(stat.test, -p.fdr)
+stat.test$y.position = c(155, 160, 155, 160)
+
+
 aim1_gai <- ggplot(gai, aes(Motion.Exclusion.Level, value, fill = Included, color=Included)) +
   geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE) +
   facet_grid(PrimaryDiagnosis~.)+
@@ -1044,6 +1254,12 @@ aim1_gai <- ggplot(gai, aes(Motion.Exclusion.Level, value, fill = Included, colo
                color="black", geom="point", aes(y=value))+
   stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.5), 
                color="black", geom="errorbar", width=.2)+
+  ggprism::add_pvalue(stat.test,
+             x = "Motion.Exclusion.Level",
+             y.position = "y.position",
+             color="black",
+             label.size = 7)+
+  scale_y_continuous(limits=c(75,165),breaks = seq(80, 160, by = 20))+  
   # geom_jitter(position=position_jitterdodge(jitter.height = .25), alpha = .3)+
   #geom_pointrange(
   #  data = summary_pheno,
@@ -1060,7 +1276,7 @@ aim1_gai <- ggplot(gai, aes(Motion.Exclusion.Level, value, fill = Included, colo
 
 #### Combine split violins into one figure & save
 ```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 4}
-fig2A <- cowplot::plot_grid(v_legend, ados_violin, nrow=2, rel_heights=c(.9, 1.1))
+fig2A <- cowplot::plot_grid(v_legend, paper_ados, nrow=2, rel_heights=c(.9, 1.1))
 
 fig2B <- cowplot::plot_grid(aim1_srs, paper_inat, paper_hyp, aim1_of, aim1_age, aim1_gai, ncol=6, 
                             rel_widths=c(.97/6,.97/6,.97/6,.97/6,.97/6,1.15/6))
@@ -1073,93 +1289,7 @@ cowplot::plot_grid(fig2A, fig2B, ncol=2, rel_widths=c(.2, 1.2))
 
 ```
 
-#### 3.1.3. Mann-Whitney U tests to compare included vs excluded participants using lenient motion QC (13 tests)
-```{r}
-#run lenient tests first
-aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level=="Lenient"))
 
-aim1MW <- aim1tib %>% 
-  group_by(PrimaryDiagnosis, variable) %>% 
-  tidyr::nest()
-
-#hypothesis: included children will have less severe symptoms. NOTE: ADOS only collected in ASD (9 tests)
-nested_mw_less <- aim1MW %>% 
-  filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
-  "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
-  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
-         idata = map(data, ~filter(., Included=="Included")),
-         edata = map(data, ~filter(., Included=="Excluded")),
-         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
-         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
-         coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMedian, excludedMedian))
-
-#hypothesis: included children will be older and have greater GAI (4 tests)
-nested_mw_greater<- aim1MW %>% 
-  filter(variable %in% c("Age", "GAI")) %>% 
-  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
-         idata = map(data, ~filter(., Included=="Included")),
-         edata = map(data, ~filter(., Included=="Excluded")),
-         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
-         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
-         coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMedian, excludedMedian))
-
-complete_mw <- rbind(nested_mw_less, nested_mw_greater)
-
-complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
-
-names(complete_mw)[which(names(complete_mw)=="statistic")]="U"
-
-complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)]
-
-xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)])
-
-```
-
-#### 3.1.3 Supplemental Table S2. Mann-Whitney U tests to compare included vs excluded participants using strict motion QC (13 tests)
-```{r, asis}
-#run tests using strict motion QC
-aim1tib <- tibble(filter(aim1, Motion.Exclusion.Level=="Strict"))
-
-aim1MW <- aim1tib %>% 
-  group_by(variable, PrimaryDiagnosis) %>% 
-  tidyr::nest()
-
-#hypothesis: included children will have less severe symptoms
-nested_mw_less <- aim1MW %>% 
-  filter(variable %in% c("SRS", "Inattention", "Hyperactivity",
-  "Motor Overflow")|(variable=="ADOS"&PrimaryDiagnosis=="ASD")) %>% 
-  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="less", data = na.omit(.x))),
-         idata = map(data, ~filter(., Included=="Included")),
-         edata = map(data, ~filter(., Included=="Excluded")),
-         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
-         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
-         coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMedian, excludedMedian))
-
-#hypothesis: included children will be older and have greater GAI
-nested_mw_greater<- aim1MW %>% 
-  filter(variable %in% c("Age", "GAI")) %>% 
-  mutate(mwm = map(data, ~wilcox.test(value~Included, alternative="greater", data = na.omit(.x))),
-         idata = map(data, ~filter(., Included=="Included")),
-         edata = map(data, ~filter(., Included=="Excluded")),
-         includedMedian = map(idata, ~median(.x$value, na.rm=TRUE)),
-         excludedMedian = map(edata, ~median(.x$value, na.rm=TRUE)),
-         coefs = map(mwm, tidy)) %>% 
-  unnest(c(coefs, includedMedian, excludedMedian))
-
-complete_mw <- rbind(nested_mw_less, nested_mw_greater)
-
-complete_mw$p.fdr <- p.adjust(complete_mw$p.value, method = "BH")
-
-names(complete_mw)[which(names(complete_mw)=="statistic")]="U"
-
-complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)]
-
-xtable(complete_mw[order(complete_mw$PrimaryDiagnosis, decreasing=TRUE), c(1:2, 7:9, 13)])
-        
-```
 ### 3.1.4. Functional connectivity as a function of phenotype and age
 
 #### Combine partial correlations with melted rs-fMRI usability and covariate info
@@ -1462,83 +1592,6 @@ passOnly <- filter(completeCases, Included=="Included")
 
 ```
 
-#### mean framewise displacement split violin none, lenient, strict
-```{r}
-meanFD_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, MeanFramewiseDisplacement,
-                                      fill = PrimaryDiagnosis, color=PrimaryDiagnosis)) +
-  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 2) +
-  stat_summary(fun = "mean", position = position_dodge(width = 0.18), 
-               color="black", geom="point", aes(y=MeanFramewiseDisplacement))+
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.18), 
-               color="black", geom="errorbar", width=.15)+
-  scale_fill_manual(values = c("#009E73", "#FDE599"))+
-  scale_color_manual(values = c("#05634a", "#E9D38D"))+
-  My_Theme_prop+theme(legend.title =element_blank())+
-  theme(axis.text.y=element_text(size=8))+
-  theme(legend.text = element_text(size = 7))+
-  theme(axis.title.y = element_blank())+
-  theme(axis.title.x = element_blank())+
-  theme(legend.position = c(0.35, .7))+
-  theme(legend.key.size=unit(.15, "in"))+
-  theme(legend.box.margin = margin(-2, -2, -2, -2))+
-  ggtitle("Mean FD")+
-  theme(plot.title = element_text(size = 8, hjust=0.5))
-```
-
-#### max framewise displacement split violin none, lenient, strict
-```{r}
-maxFD_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, MaxFramewiseDisplacement,
-                                     fill = PrimaryDiagnosis, color=PrimaryDiagnosis)) +
-  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 2) +
-  stat_summary(fun = "mean", position = position_dodge(width = 0.18), color="black", 
-               geom="point", aes(y=MaxFramewiseDisplacement))+
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.18), 
-               color="black", geom="errorbar", width=.15)+
-  scale_fill_manual(values = c("#009E73", "#FDE599"))+
-  scale_color_manual(values = c("#05634a", "#E9D38D"))+
-  My_Theme_prop+
-  theme(axis.text.y=element_text(size=8))+
-  theme(axis.title.y = element_blank())+
-  theme(axis.title.x = element_blank())+
-  theme(legend.position = "none")+
-  ggtitle("Max FD")+
-  theme(plot.title = element_text(size = 8, hjust=0.5))
-```
-
-#### frames with FD <= 0.25 mm split violin none, lenient, strict
-```{r}
-frames_violin <- ggplot(passOnly, aes(Motion.Exclusion.Level, FramesWithFDLessThanOrEqualTo250microns,
-                                     fill = PrimaryDiagnosis, color=PrimaryDiagnosis)) +
-  geom_split_violin(trim=TRUE, alpha = 0.5, inherit.aes = TRUE, adjust = 2) +
-  stat_summary(fun = "mean", position = position_dodge(width = 0.18), color="black", 
-               geom="point", aes(y=FramesWithFDLessThanOrEqualTo250microns))+
-  stat_summary(fun.data = "mean_cl_boot", position = position_dodge(width = 0.18), 
-               color="black", geom="errorbar", width=.15)+
-  scale_fill_manual(values = c("#009E73", "#FDE599"))+
-  scale_color_manual(values = c("#05634a", "#E9D38D"))+
-  My_Theme_prop+
-  theme(axis.text.y=element_text(size=8))+
-  theme(axis.title.y = element_blank())+
-  theme(axis.title.x = element_blank())+
-  theme(legend.position = "none")+
-  ggtitle("Frames with FD<0.25 mm")+
-  theme(plot.title = element_text(size = 8, hjust=0.5))
-```
-
-#### Combine 3 FD plots into one figure and save
-```{r, echo=F, message=FALSE, warning=FALSE, fig.width = 5, fig.height = 3}
-png("Figures/fd_metrics.png",width=5,height=2.5,units="in",res=200)
-
-cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin, 
-                   ncol=3, nrow =1, rel_widths = c(1/3, 1/3, 1/3), labels = c("","", ""))
-dev.off()
-
-cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin, 
-                   ncol=3, nrow =1, rel_widths = c(1/3, 1/3, 1/3), labels = c("","", ""))
-```
-
-Framewise displacement metrics are more similar across diagnostic groups using the strict motion QC, but very few participants are labeled as usable.
-
 #### Filter out "None" from Motion.Exclusion.Level to make remaining group differences in FD metrics following motion QC easier to see
 
 #### mean framewise displacement
@@ -1616,3 +1669,5 @@ dev.off()
 cowplot::plot_grid(meanFD_violin, maxFD_violin, frames_violin, 
                    ncol=3, nrow =1, rel_widths = c(1/3, 1/3, 1/3), labels = c("","", ""))
 ```
+
+Framewise displacement metrics are more similar across diagnostic groups using the strict motion QC, but very few participants are labeled as usable.

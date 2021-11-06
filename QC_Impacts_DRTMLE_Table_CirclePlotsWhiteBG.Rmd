@@ -78,13 +78,12 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   
   # Get colours, turn the vector into characters, and then use the factor numbers of DATA$Group to assign colour.
   
-  cColors = wes_palette("FantasticFox1", nGroups, type = 'continuous')
   
-  DATA$gColor = cColors %>% as.character %>% 
+  #cColors = wes_palette("FantasticFox1", nGroups, type = 'continuous')
+  cColors = viridis::plasma(nGroups)
+  
+  DATA$gColor = cColors[1:nGroups] %>% as.character %>% 
     .[as.numeric(DATA$Group)]
-  
-  #DATA$gColor = rainbow(nGroups) %>% as.character %>% 
-   # .[as.numeric(DATA$Group)]
   
   #### arrange circle plot by group
   oDATA = DATA %>% arrange(Group)
@@ -332,12 +331,13 @@ circos.clear()
 ```{r, fig.width=5, fig.height=5}
 
 png("Application_Figures/DRTMLE_zstat_groupdifference_fdr20.png",width=5,height=5,units="in",res=200)
-myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD')
+#myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD')
+myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='')
 dev.off()
 
 circos.clear()
 
-myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.02')
+myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.20')
 
 circos.clear()
 
