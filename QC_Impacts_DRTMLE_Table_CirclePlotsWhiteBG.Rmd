@@ -19,7 +19,6 @@ library(circlize)
 library(png)
 #to remove background from .pngs
 library(colordistance)
-library(wesanderson)
 ```
 
 #### Define Circle plot functions:
@@ -76,17 +75,28 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   
   nGroups = length(unique(DATA$Group))
   
-  # Get colours, turn the vector into characters, and then use the factor numbers of DATA$Group to assign colour.
-  
-  
-  #cColors = wes_palette("FantasticFox1", nGroups, type = 'continuous')
-  cColors = viridis::plasma(nGroups)
-  
-  DATA$gColor = cColors[1:nGroups] %>% as.character %>% 
-    .[as.numeric(DATA$Group)]
-  
   #### arrange circle plot by group
   oDATA = DATA %>% arrange(Group)
+  
+  #### trying to avoid track text changing direction within a network
+  oDATA$NewOrder = rep(NA, nrow(oDATA))
+  oDATA$NewOrder[oDATA$Group=="Attn"]=1
+  oDATA$NewOrder[oDATA$Group=="Control"]=5
+  oDATA$NewOrder[oDATA$Group=="SalVenAtt"]=6
+  oDATA$NewOrder[oDATA$Group=="SC"]=3
+  oDATA$NewOrder[oDATA$Group=="Default"]=4
+  oDATA$NewOrder[oDATA$Group=="SomMot"]=7
+  oDATA$NewOrder[oDATA$Group=="Vis"]=2
+  
+  oDATA = oDATA %>% arrange(NewOrder)
+  
+   # Get colours, turn the vector into characters, and then use the factor numbers of DATA$NewOrder to assign colour.
+  
+  #cColors = wesanderson::wes_palette("FantasticFox1", nGroups, type = 'continuous')
+  cColors = viridis::plasma(nGroups)
+  
+  oDATA$gColor = cColors[1:nGroups] %>% as.character %>% 
+    .[as.numeric(oDATA$NewOrder)]
   
   #### Define small gap between ICs and big gap between networks
   # sectorGap[1] is the gap after the first sector
@@ -96,8 +106,8 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   bigGap = 7
   sectorGap = rep(bigGap, nrow(DATA))
   
-  for (ig in 1:nrow(DATA)-1){
-    sectorGap[ig] = ifelse(oDATA$Group[ig+1]==oDATA$Group[ig], smallGap, bigGap)
+  for (ig in 1:nrow(oDATA)-1){
+    sectorGap[ig] = ifelse(oDATA$NewOrder[ig+1]==oDATA$NewOrder[ig], smallGap, bigGap)
   }
   
   ############################################
