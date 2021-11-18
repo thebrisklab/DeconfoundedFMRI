@@ -210,11 +210,11 @@ rm(results.df)
 
 results.ave = rbind(results.all,results.all2) %>%
   group_by(EdgeName) %>%
-  summarize(mean.ASD.naive=mean(mean.ASD.naive), 
-            mean.TD.naive=mean(mean.TD.naive),
+  summarize(mean.ASD.naive=round(mean(mean.ASD.naive), digits = 3),
+            mean.TD.naive=round(mean(mean.TD.naive), digits = 3),
             mean.diff.naive=mean(mean.diff.naive), 
             z.stat.ASD.naive=mean(z.stat.ASD.naive),
-            z.stat.TD.naive=round(mean(z.stat.TD.naive), digits = 4),
+            z.stat.TD.naive=mean(z.stat.TD.naive),
             z.stat.diff.naive=round(mean(z.stat.diff.naive), digits = 4),
             mean.ASD.SL=round(mean(mean.ASD.SL), digits = 3), 
             mean.TD.SL=round(mean(mean.TD.SL), digits = 3),
@@ -235,7 +235,7 @@ results.ave$td.p.SL.fdr = round(p.adjust(results.ave$td.p.SL,method='BH'), digit
 
 ```
 
-#### Determin edges showing a significant group difference
+#### Determine edges showing a significant group difference
 ```{r}
 fdr05.edges.SL = which(results.ave$p.SL.fdr<.05) 
 fdr05.edges.naive = which(results.ave$p.naive.fdr<.05) 
@@ -272,20 +272,6 @@ for(iimg in seq(1:nrow(DATA))) {
   
 ```
 
-#### Naive TD Z-Statistic FDR=0.05
-```{r, fig.width=5, fig.height=5}
-png("Application_Figures/Naive_zstat_TD_fdr05.png",width=5,height=5,units="in",res=200)
-
-myChordDiagram(data=results.ave,varname='z.stat.TD.naive',alpha=0.05,alphaname='td.p.naive.fdr', title='')
-dev.off()
-
-circos.clear()
-
-myChordDiagram(data=results.ave,varname='z.stat.TD.naive',alpha=0.05,alphaname='td.p.naive.fdr',title='A. Naive Z-Statistic, TD, FDR=0.05')
-
-circos.clear()
-
-```
 
 #### Naive ASD-TD Z-Statistic FDR=0.05
 ```{r, fig.width=5, fig.height=5}
@@ -320,16 +306,19 @@ circos.clear()
 #### Create table displaying group Z-statistics from DRTMLE for edges showing a group difference at FDR=.20
 ```{r, results="asis"}
 # group means for edges showing a group difference using DRTMLE:
-results.sigEdges = results.ave[fdr20.edges.SL,c(1,8:9,13,15, 17)]
+results.sigEdges = results.ave[fdr20.edges.SL,c(1,2:3, 7:9,13,15, 17)]
 
 results.sigEdges <-   results.sigEdges[order(results.sigEdges$p.SL.fdr), ]
 
 names(results.sigEdges)[1] = "Edge"
-names(results.sigEdges)[2] = "ASD mean"
-names(results.sigEdges)[3] = "TD mean"
-names(results.sigEdges)[4] = "ASD-TD Z"
-names(results.sigEdges)[5] = "naive FDR-adjusted p"
-names(results.sigEdges)[6] = "SL FDR-adjusted p"
+names(results.sigEdges)[2] = "naive ASD mean"
+names(results.sigEdges)[3] = "naive TD mean"
+names(results.sigEdges)[4] = "naive ASD-TD Z"
+names(results.sigEdges)[5] = "DRTMLE ASD mean"
+names(results.sigEdges)[6] = "DRTMLE TD mean"
+names(results.sigEdges)[7] = "DRTMLE ASD-TD Z"
+names(results.sigEdges)[8] = "naive FDR-adjusted p"
+names(results.sigEdges)[9] = "DRTMLE FDR-adjusted p"
 
 
 knitr::kable(results.sigEdges, format="markdown")
@@ -342,7 +331,7 @@ Mean functional connectivity group estimates further from zero reflect stronger 
 
 #### Create latex version for paper
 ```{r}
-tab <- knitr::kable(results.sigEdges, format="latex")
+tab <- knitr::kable(results.sigEdges, format="latex", linesep = '')
 print(tab, type="latex")
 
 ```
