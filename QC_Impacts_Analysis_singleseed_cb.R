@@ -19,8 +19,8 @@ getOption("mc.cores")
 #options(mc.cores=8)
 options(mc.cores=1)
 getOption("mc.cores")
-seed=1
-#seed = seedID
+#seed=1
+seed = seedID
 
 set.seed(seed, "L'Ecuyer-CMRG")
 
