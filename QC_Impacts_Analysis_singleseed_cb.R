@@ -8,7 +8,7 @@
 setwd('~/risk_share/QualityControlImpacts')
 #setwd('~/Github/DeconfoundedFMRI')
 save.input.data = FALSE
-#save.input.data = TRUE
+# save.input.data = TRUE
 
 #(num_cores = RhpcBLASctl::get_num_cores())
 a = .libPaths()
@@ -18,9 +18,11 @@ a = .libPaths()
 #install.packages("drtmle",repos = 'https://cloud.r-project.org')
 
 getOption("mc.cores")
+#options(mc.cores=8)
 options(mc.cores=1)
 getOption("mc.cores")
 seed = seedID
+
 set.seed(seed, "L'Ecuyer-CMRG")
 
 tic = proc.time()
@@ -148,9 +150,10 @@ my.SL.libs.Qbar= c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridg
 #   SL.glminteraction: produces a rank-deficient model
 
 # Predict PANESS:
-#paness.predictors = c('HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.StereotypedBehaviorsRestrictedInterests','ADOS.Comparable.Total')
 
-paness.predictors = c('HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','SES.Family','Race2','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
+#paness.predictors = c('HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','SES.Family','Race2','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
+paness.predictors = c('PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','SES.Family','Race2','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
+
 
 temp.data = dat2[,c('PANESS.TotalOverflowNotAccountingForAge',paness.predictors)]
 completeCasesPredict = complete.cases(temp.data[,2:ncol(temp.data)])
@@ -187,7 +190,7 @@ paness.model$times$everything
 # check fit:
 dat2$Predicted.PANESS[completeCasesPredict]=predict(paness.model,newdata = paness.xmat.predict)[[1]]
 plot(dat2$Predicted.PANESS,dat2$PANESS.TotalOverflowNotAccountingForAge)
-cor(dat2$Predicted.PANESS,dat2$PANESS.TotalOverflowNotAccountingForAge,use='complete.obs')^2 # pretty good!
+cor(dat2$Predicted.PANESS,dat2$PANESS.TotalOverflowNotAccountingForAge,use='complete.obs')^2 
 
 dat2$iPANESS.TotalOverflowNotAccountingForAge=dat2$PANESS.TotalOverflowNotAccountingForAge
 dat2$iPANESS.TotalOverflowNotAccountingForAge[is.na(dat2$PANESS.TotalOverflowNotAccountingForAge)]=dat2$Predicted.PANESS[is.na(dat2$PANESS.TotalOverflowNotAccountingForAge)]
@@ -202,7 +205,7 @@ sum(is.na(dat2$iPANESS.TotalOverflowNotAccountingForAge))
 # Dataset for propensity model:
 #gn.variables = c('KKI_criteria','HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','handedness','CurrentlyOnStimulants','iPANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total','ADOS.Comparable.StereotypedBehaviorsRestrictedInterests')
 
-gn.variables = c('KKI_criteria','HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','Race2','SES.Family','handedness','CurrentlyOnStimulants','iPANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
+gn.variables = c('KKI_criteria','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','handedness','CurrentlyOnStimulants','iPANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
 
 # these indices will be used in the outcome model and drtmle as well:
 temp.data = dat2[,gn.variables]
@@ -221,7 +224,7 @@ Delta.KKI = ifelse(temp.data$KKI_criteria=='Pass',1,0)
 # fit with glm and gam: eventually, compare AUCs
 glm.prop.model = glm(Delta.KKI~as.matrix(gn.xmat),family=binomial)
 propensities.glm = predict(glm.prop.model,type = 'response')
-gam.prop.model = mgcv::gam(Delta.KKI~PrimaryDiagnosisNone+ADHD_Secondary+SexM+HeadCoil8.channel.coil+handednessMixed+handednessRight+CurrentlyOnStimulants+s(YearOfScan)+s(AgeAtScan)+s(DuPaulHome.InattentionRaw)+s(DuPaulHome.HyperactivityRaw)+s(WISC.GAI)+s(iPANESS.TotalOverflowNotAccountingForAge)+s(ADOS.Comparable.Total),method='REML',family=binomial,data=gn.xmat)
+gam.prop.model = mgcv::gam(Delta.KKI~PrimaryDiagnosisNone+ADHD_Secondary+handednessMixed+handednessRight+CurrentlyOnStimulants+s(AgeAtScan)+s(DuPaulHome.InattentionRaw)+s(DuPaulHome.HyperactivityRaw)+s(WISC.GAI)+s(iPANESS.TotalOverflowNotAccountingForAge)+s(ADOS.Comparable.Total),method='REML',family=binomial,data=gn.xmat)
 propensities.gam=predict(gam.prop.model,type='response')
 
 
