@@ -6,7 +6,7 @@
 #setwd('~/Dropbox/QualityControlImpactsFMRI')
 setwd('~/risk_share/QualityControlImpacts')
 save.input.data = FALSE
-# save.input.data = TRUE
+#save.input.data = TRUE
 
 #(num_cores = RhpcBLASctl::get_num_cores())
 a = .libPaths()
@@ -19,7 +19,8 @@ getOption("mc.cores")
 #options(mc.cores=8)
 options(mc.cores=1)
 getOption("mc.cores")
-seed = seedID
+seed=1
+#seed = seedID
 
 set.seed(seed, "L'Ecuyer-CMRG")
 
@@ -203,7 +204,7 @@ sum(is.na(dat2$iPANESS.TotalOverflowNotAccountingForAge))
 gn.variables = c('KKI_criteria','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','handedness','CurrentlyOnStimulants','iPANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
 
 # these indices will be used in the outcome model and drtmle as well:
-temp.data = dat2[,gn.variables]
+temp.data = dat2[,c(gn.variables)]
 # missingness in the model with imputation:
 vis_miss(temp.data[order(temp.data$PrimaryDiagnosis),])
 
@@ -245,7 +246,9 @@ dat3 = merge(dat2,prop.asdtd,all = TRUE) # here, we keep all observations
 # and new xmat need to be made even when using the same variables in the 
 # propensity and outcome models
 # Create a variable equal to one if the observation is used:
-dat3$CompletePredictorCases = complete.cases(dat3[,gn.variables])
+# NOTE: due to missing observations in variables in the initial linear
+# model, need to include r.ic1.ic2 in this: 
+dat3$CompletePredictorCases = complete.cases(dat3[,c(gn.variables,'r.ic1.ic2')])
 
 # save datasets to be loaded for DRTMLE:
 # NOTE: These datasets include the propensities, which change with each seed:
@@ -258,7 +261,7 @@ table(dat3$KKI_criteria,dat3$Delta.KKI)
 # these should be all in agreement (0 on off diagonal)
 all(idx.all.cc==!is.na(dat3$propensities.SL))
 
-  # this should be >0.5:
+  # Delta should be correlated with propensities: 
   cor(1*(dat3$KKI_criteria=='Pass'),dat3$propensities.SL,use='pairwise.complete.obs')
 
 ### Create outcome regression datasets:
@@ -266,7 +269,8 @@ all(idx.all.cc==!is.na(dat3$propensities.SL))
 Qn.variables =  gn.variables
 #NOTE: KKI_criteria is not used in prediction, but is included as a trick to construct the design matrix
 
-idx.pass.cc = dat3$KKI_criteria=='Pass' & !is.na(dat3$propensities.SL)
+# complete cases pass defined by pass, no missing propensities (behavioral variables), and no missing fconn (driven by the initial linear model with imbalanced variables)
+idx.pass.cc = dat3$KKI_criteria=='Pass' & !is.na(dat3$propensities.SL) & !is.na(dat3$r.ic1.ic2)
 # use in naive estimates in for loop:
 idx.pass.cc.asd = idx.pass.cc & dat3$PrimaryDiagnosis=='Autism'
 idx.pass.cc.td = idx.pass.cc & dat3$PrimaryDiagnosis=='None'
