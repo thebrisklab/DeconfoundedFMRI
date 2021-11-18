@@ -100,12 +100,13 @@ dat3$KKI_criteria <- factor(dat3$KKI_criteria, levels=c("Pass", "Fail"))
 dat3$Ciric_length <- factor(dat3$Ciric_length, levels=c("Pass", "Fail"))
 
 #combine Ciric_length, KKI, and noExclusion exclusion into one variable
-allVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan", "Ciric_length", "KKI_criteria", "noExclusion", 
+allVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan", "Ciric_length", "KKI_criteria", "noExclusion",
                  "PANESS.TotalOverflowNotAccountingForAge", "SRS.Score", "WISC.GAI", 
                  "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw",  "ADOS.Comparable.Total",
                  "CurrentlyOnStimulants", "HeadCoil", "Sex", 
                  "ADHD_Secondary", "SES.Family", 
-                 "Race2", "handedness", "CompletePredictorCases", "YearOfScan",
+                 "Race2", "handedness", "CompletePredictorCases",
+                 "YearOfScan", 
                  "MeanFramewiseDisplacement.KKI")
 
 idVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan",
@@ -113,7 +114,8 @@ idVariables = c("ID", "PrimaryDiagnosis", "AgeAtScan",
                 "DuPaulHome.InattentionRaw", "DuPaulHome.HyperactivityRaw", "ADOS.Comparable.Total", 
                 "CurrentlyOnStimulants", "HeadCoil", "Sex", 
                 "ADHD_Secondary", "SES.Family", 
-                "Race2", "handedness", "CompletePredictorCases", "YearOfScan",
+                "Race2", "handedness", "CompletePredictorCases", 
+                "YearOfScan",
                 "MeanFramewiseDisplacement.KKI")
 
 qcMelt <- reshape2::melt(dat3[, allVariables],
@@ -194,7 +196,7 @@ completeCases <- filter(qcMelt, CompletePredictorCases==1)
 completeCases$Sex <- relevel(as.factor(completeCases$Sex), "M")
 
 #use chisq for Sex and handedness, kruskal-wallis rank test for Age
-tabSex<- tableby( PrimaryDiagnosis~Sex+AgeAtScan+handedness, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+tabSex<- tableby( PrimaryDiagnosis~Sex+AgeAtScan+handedness+YearOfScan+HeadCoil, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
 
 #use fisher's exact test for Race, k-w for SES
 tabRace<- tableby( PrimaryDiagnosis~Race2+SES.Family, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe", total=FALSE))
@@ -1031,6 +1033,13 @@ paper_ados <- ggplot(ados, aes(Motion.Exclusion.Level, value, fill = Included, c
   ggtitle("ADOS")
 
 ```
+#### Checking positivity assumption for DRTMLE
+```{r}
+ados %>% filter(Motion.Exclusion.Level=="Lenient" & Included=="Excluded") %>% select(value) %>% max()
+ados %>% filter(Motion.Exclusion.Level=="Lenient" & Included=="Included") %>% select(value) %>% max()
+```
+
+The highest ADOS score among included children using leninet motion QC is 23; among all children, 26.
 
 #### Figure 3b. SRS split violin
 ```{r}

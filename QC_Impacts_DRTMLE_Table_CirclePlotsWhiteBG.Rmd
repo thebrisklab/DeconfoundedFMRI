@@ -80,13 +80,13 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   
   #### trying to avoid track text changing direction within a network
   oDATA$NewOrder = rep(NA, nrow(oDATA))
-  oDATA$NewOrder[oDATA$Group=="Attn"]=1
-  oDATA$NewOrder[oDATA$Group=="Control"]=5
-  oDATA$NewOrder[oDATA$Group=="SalVenAtt"]=6
-  oDATA$NewOrder[oDATA$Group=="SC"]=3
-  oDATA$NewOrder[oDATA$Group=="Default"]=4
-  oDATA$NewOrder[oDATA$Group=="SomMot"]=7
-  oDATA$NewOrder[oDATA$Group=="Vis"]=2
+  oDATA$NewOrder[oDATA$Group=="Attn"]=7
+  oDATA$NewOrder[oDATA$Group=="Control"]=1
+  oDATA$NewOrder[oDATA$Group=="SalVenAtt"]=3
+  oDATA$NewOrder[oDATA$Group=="SC"]=4
+  oDATA$NewOrder[oDATA$Group=="Default"]=2
+  oDATA$NewOrder[oDATA$Group=="SomMot"]=5
+  oDATA$NewOrder[oDATA$Group=="Vis"]=6
   
   oDATA = oDATA %>% arrange(NewOrder)
   
@@ -216,9 +216,9 @@ results.ave = rbind(results.all,results.all2) %>%
             z.stat.ASD.naive=mean(z.stat.ASD.naive),
             z.stat.TD.naive=round(mean(z.stat.TD.naive), digits = 4),
             z.stat.diff.naive=round(mean(z.stat.diff.naive), digits = 4),
-            mean.ASD.SL=round(mean(mean.ASD.SL), digits = 2), 
-            mean.TD.SL=round(mean(mean.TD.SL), digits = 2),
-            mean.diff.SL=round(mean(mean.diff.SL), digits = 2), 
+            mean.ASD.SL=round(mean(mean.ASD.SL), digits = 3), 
+            mean.TD.SL=round(mean(mean.TD.SL), digits = 3),
+            mean.diff.SL=round(mean(mean.diff.SL), digits = 3), 
             z.stat.ASD.SL=mean(z.stat.ASD.SL),
             z.stat.TD.SL=mean(z.stat.TD.SL), 
             z.stat.diff.SL=round(mean(z.stat.diff.SL), digits = 2))
@@ -227,6 +227,11 @@ results.ave$p.naive = 2*(1-pnorm(abs(results.ave$z.stat.diff.naive)))
 results.ave$p.naive.fdr = round(p.adjust(results.ave$p.naive,method='BH'), digits = 3)
 results.ave$p.SL = 2*(1-pnorm(abs(results.ave$z.stat.diff.SL)))
 results.ave$p.SL.fdr = round(p.adjust(results.ave$p.SL,method='BH'), digits = 3)
+
+results.ave$td.p.naive = 2*(1-pnorm(abs(results.ave$z.stat.TD.naive)))
+results.ave$td.p.naive.fdr = round(p.adjust(results.ave$td.p.naive,method='BH'), digits = 3)
+results.ave$td.p.SL = 2*(1-pnorm(abs(results.ave$z.stat.TD.SL)))
+results.ave$td.p.SL.fdr = round(p.adjust(results.ave$td.p.SL,method='BH'), digits = 3)
 
 ```
 
@@ -237,6 +242,12 @@ fdr05.edges.naive = which(results.ave$p.naive.fdr<.05)
 
 fdr20.edges.SL = which(results.ave$p.SL.fdr<.20) 
 fdr20.edges.naive = which(results.ave$p.naive.fdr<.20) 
+
+fdr05.td.edges.SL = which(results.ave$td.p.SL.fdr<.05) 
+fdr05.td.edges.naive = which(results.ave$td.p.naive.fdr<.05) 
+
+fdr20.td.edges.SL = which(results.ave$td.p.SL.fdr<.20) 
+fdr20.td.edges.naive = which(results.ave$td.p.naive.fdr<.20) 
 
 ```
 
@@ -261,11 +272,26 @@ for(iimg in seq(1:nrow(DATA))) {
   
 ```
 
+#### Naive TD Z-Statistic FDR=0.05
+```{r, fig.width=5, fig.height=5}
+png("Application_Figures/Naive_zstat_TD_fdr05.png",width=5,height=5,units="in",res=200)
+
+myChordDiagram(data=results.ave,varname='z.stat.TD.naive',alpha=0.05,alphaname='td.p.naive.fdr', title='')
+dev.off()
+
+circos.clear()
+
+myChordDiagram(data=results.ave,varname='z.stat.TD.naive',alpha=0.05,alphaname='td.p.naive.fdr',title='A. Naive Z-Statistic, TD, FDR=0.05')
+
+circos.clear()
+
+```
+
 #### Naive ASD-TD Z-Statistic FDR=0.05
 ```{r, fig.width=5, fig.height=5}
 png("Application_Figures/Naive_zstat_groupdifference_fdr05.png",width=5,height=5,units="in",res=200)
 
-myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.05,alphaname='p.naive.fdr', title='A. Naive Z-Statistic, ASD-TD')
+myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.05,alphaname='p.naive.fdr', title='')
 dev.off()
 
 circos.clear()
@@ -280,7 +306,7 @@ circos.clear()
 ```{r, fig.width=5, fig.height=5}
 
 png("Application_Figures/DRTMLE_zstat_groupdifference_fdr05.png",width=5,height=5,units="in",res=200)
-myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD')
+myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p.SL.fdr',title='')
 dev.off()
 
 circos.clear()
@@ -325,7 +351,7 @@ print(tab, type="latex")
 ```{r, fig.width=5, fig.height=5}
 
 png("Application_Figures/Naive_zstat_groupdifference_fdr20.png",width=5,height=5,units="in",res=200)
-myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.20,alphaname='p.naive.fdr', title='A. Naive Z-Statistic, ASD-TD')
+myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.20,alphaname='p.naive.fdr', title='')
 dev.off()
 
 circos.clear()
