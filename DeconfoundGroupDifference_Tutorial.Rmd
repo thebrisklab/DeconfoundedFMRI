@@ -1,7 +1,7 @@
 ---
 title: "DeconfoundedGroupDifference_Tutorial"
 author: "Benjamin Risk"
-date: "8/16/2021"
+date: "11/21/2021"
 output: html_document
 ---
 
@@ -14,31 +14,43 @@ knitr::opts_chunk$set(echo = TRUE)
 options(mc.cores=8)
 getOption("mc.cores")
 seed = 123
+
 set.seed(seed, "L'Ecuyer-CMRG")
 ```
 
-## Simulate data
+## Summary
+Our parameter of interest is the difference in functional connectivity between ASD and typically developing (TD) children. For ASD, our goal is to calculate the mean functional connectivity across the spectrum of ASD severity.
 
-Here, we will create a variable X1 that will be driving the confounding between usability and functional connectivity. The idea is to create a variable similar to a measure of ASD severity. It is equal to zero when A=0 and is log normal when A=1. We also create some additional covariates to make the estimation a little harder. In this example, there is bias in the ASD functional connectivity but not in the TD. 
+Here, we will create a variable $W_c$ that will be driving the confounding between data usability and functional connectivity. The idea is to create a variable similar to a measure of ASD severity, such that the distribution of $W_c$ differs by diagnosis. Let $A$ denote diagnosis, where $A=1$ denotes ASD and $A=0$ denotes typically developing (TD). Then $W_c$ is equal to zero when $A=0$ and is log normal when $A=1$. We also create some additional covariates to make the estimation a little harder, and we call the vector of $W_c$ and the additional covariates $W$. In this example, there is confounding in the ASD functional connectivity but not in TD. We could also simulate confounding in the TD, for example, caused by a biased distribution of ages. Here, we keep things simple and only create confounding in the ASD group, which in turn creates confounding in the difference between groups. 
 
-We create a huge dataset that is used to calculate $E^*[Y(1)|A=0]$ and $E^*[Y(1)|A=1]$ (approximating the integration via simulation), then we also create a sample from this "population" that is then used to estimate $E[E[Y|\Delta=1,A=0,W]|A=0]$ and $E[E[Y|\Delta=1,A=1,W]|A=1]$. 
+We create a huge dataset, which we call the population sample, that is used to calculate the population parameter of interest, $E^*[Y(1)|A=1]-E^*[Y(1)|A=0]$ (approximating the integration via simulation). Here, $Y(1)$ denotes functional connectivity in the counterfactual world in which data are usable. We create an example where $W_c$ impacts data usability ($\Delta=1$) and is related to functional connectivity, $Y(1)$, such that restricting the analysis to children with usable data results in confounding. We will create a smaller sample, called the study sample, and show we can estimate the target parameter, $E[E[Y|\Delta=1,A=1,W]|A=1] - E[E[Y|\Delta=1,A=0,W]|A=0]$, to obtain an estimate of the true difference in functional connectivity. 
+
+## Simulate diagnosis-specific distribution of behavioral variables 
+
+First, we will simulate a joint distribution of $[A,W_c]$, creating a path $A \leftrightarrow W_c$. We will also create nine more behavioral variables that do not impact the population parameter of interest, but will make the estimation of the deconfounded group difference a little harder.
 
 ```{r simdata1}
 p=10 # number of covariates
-n1 = 100000 # number of observations to obtain the "true" functional connectivity; needs to be large
-n2 = 550 # number of observations in the "sample"; n2<=n1
+n1 = 100000 # number of observations to obtain the "true" functional connectivity; needs to be large. Call this the population sample.
+n2 = 550 # number of observations in the "study sample"; n2<=n1
 #n2 = 10000 # use huge sample to see we get very close to truth
 
 A = rbinom(n1,1,0.25) # diagnosis
 
-X1 = A*exp(rnorm(n1,sd=0.4)+2) # equal to 0 for A=0, log normal for A=1
-#hist(X1)
-W = cbind(X1,matrix(rnorm(n1*(p-1)),nrow=n1))
+W_c = A*exp(rnorm(n1,sd=0.4)+2) # A<-->W_c. 
+# Here. W_c equal to 0 for A=0, log normal for A=1
+W = cbind(W_c,matrix(rnorm(n1*(p-1)),nrow=n1))
+```
 
-gn.true = plogis(2-0.2*X1)
+
+## Simulate sampling bias that results from excluding children with more severe ASD.
+
+Next, we create the true propensity model. In this example, we have the connection $W_c \rightarrow \Delta$. We could also simulate a connection between $A$ and $\Delta$, but it is not necessary for inducing confounding.
+
+```{r}
+gn.true = plogis(2-0.2*W_c)
 
 quantile(gn.true,c(0.025,0.975)) # note: helps to choose parameters so that this is not too close to 0 or 1
-
 Delta = rbinom(n=n1,size=1,prob = gn.true)
 min(gn.true[Delta==1])
 
@@ -46,37 +58,55 @@ min(gn.true[Delta==1])
 mean(Delta[A==1])
 # Usable in TD:
 mean(Delta[A==0])
+```
 
-# check the difference in mean of X1 in all data versus usable.
-# This will influence the degree of confounding:
-mean(X1[A==1]) # mean of X1 in all ASD children
-mean(X1[A==1 & Delta==1]) # mean of X1 in ASD children with usable data
+The difference between the distribution of $W_c$ in the full sample and the distribution of $W_.sample_c$ in the usable sample is the sampling bias caused by motion QC. 
 
+```{r}
+mean(W_c[A==1]) # mean of W_c in all ASD children
+mean(W_c[A==1 & Delta==1]) # mean of W_c in ASD children with usable data
+
+par(mfrow=c(1,2))
+hist(W_c[A==1], main='A) ASD severity in full sample',xlim=c(0,35))
+abline(v=mean(W_c[A==1]),col='red') 
+
+hist(W_c[A==1 & Delta==1],main='B) ASD severity in usable sample',xlim=c(0,35))
+abline(v=mean(W_c[A==1 & Delta==1]),col='red')
+```
+
+The full sample (Panel A) represents the distribution of ASD severity with respect to which we desire to calculate $E[E[Y(1)|W,A=1]|A=1]$. Note the inner expectation is a random variable in W, then the outer expectation will integrate with respect to the full distribution of W. The usable sample (Panel B) represents the distribution of ASD severity in children that pass the motion quality control criteria. In the naive approach, the mean of ASD functional connectivity is in fact an estimate of $E[Y|A=1,\Delta=1]=E[E[Y|A=1,W,\Delta=1]|A=1,\Delta=1]$, i.e., it calculates average functional connectivity across the biased sample.
+
+## Simulate path between ASD severity and functional connnectivity. 
+For the sampling bias to impact the functional connectivity, there must be dependence between the variables with biased sampling distributions and functional connectivity. Here, we simulate $W_c \rightarrow Y$. We use a simple linear effect, slope=-0.2, although superLearner allows more complicated relationships. We also simulate $A \rightarrow Y$. We simulate an example where the conditional effect of ASD is positive, i.e., $E[Y(1)|A=1,W=w] - E[Y(1)|A=0,W=w] = 1.4$, but the marginalized effect of $A$ is negative, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0] < 0$. This set up will result in large confounding when the data are later restricted to usable observations. (This aspect is not necessary for confounding, but helps illustrate the importance of the deconfounded group difference.) The output of this step is a sample of $Y(1)$, the data in the counterfactual world in which all data are usable, in particular, we have realizations of functional connectivity for all values of $W_c$ and not just those with usable data.  
+
+Note we have created a very large number of observations here so that we can approximate $E[Y(1)|A=1] - E[Y(1)|A=0] < 0$, which can be tricky to analytically calculate. Later on, we will use a more realistic sample size in our estimation procedure.
+
+```{r}
 # Simulate functional connectivity:
-# In this set up, conditional effect of asd positive, but marginal negative:
-betas_Qbar = c(-0.2,rep(0,p-1),1.4) 
+# the slope of W_c is -0.2, the change in mean from ASD is 1.4:
+betas_Qbar = c(-0.2,rep(0,p-1),1.4)
 xmat=cbind(W,A)
 Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)
 ```
 
 
-Next, we calculate the "true" ASD fconn and "true" TD:
+Next, we calculate the "true" ASD fconn and "true" TD, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0]$:
 
 ```{r}
 (ASD.true = mean(Y[A==1]))
 (TD.true = mean(Y[A==0]))
 ```
 
-These are the biased means resulting from confounding with usability:
+Next, we calculate the naive means in the population sample, $E[Y|A=1,\Delta=1]=E[E[Y|A=1,\Delta=1,W]|A=1,\Delta]$, resulting from confounding with usability:
 
 ```{r}
 mean(Y[A==1 & Delta==1])
 mean(Y[A==0 & Delta==1])
 ```
 
+## Next, create a study sample with realistic sample size.
 
-Create a sample with realistic sample size:
-
+This creates a smaller sample (e.g., 550) that will be input into drtmle, which we call the study sample.
 ```{r}
 sample.i = sample(n1,n2,replace=FALSE)
 Y.sample = Y[sample.i]
@@ -85,15 +115,25 @@ A.sample = A[sample.i]
 W.sample = W[sample.i,]
 ```
 
-The best estimate of deconfounded group difference we can expect given limited sample size (the difference between this and truth reflects the small-ish sample size):
+In this sample, we have the realizations of $Y(1)$. We can calculate the group difference using the $Y(1)$ on this more limited sample, which in some sense represents the best we can expect given limited sample size (the difference between this and truth reflects the small-ish sample size). Since the $W_c$ has high variability, we expect this sample to exhibit some departure from the full sample:
 
 ```{r}
 mean(Y.sample[A.sample==1])
 mean(Y.sample[A.sample==0])
 ```
 
+## Make unusable data equal to missing
 
-## Fit propensity model using superlearner:
+Now we will over-write the Y(1) to be equal to missing for the children with data that are unusable. 
+
+```{r}
+Y.sample.QC=Y.sample
+Y.sample.QC[Delta.sample==0]=NA
+```
+
+## Fit propensity model using superlearner
+
+We now estimate the propensity model and extract the predicted probabilities of data usability (propensities) using SuperLearner.
 ```{r, echo=FALSE, message=FALSE}
 library(drtmle)
 library(SuperLearner)
@@ -113,15 +153,16 @@ library(e1071)
 library(glmnet)
 ```
 
-Estimate propensities (gn) using all data:
+Estimate propensities (gn) from the study sample:
 
 ```{r message=FALSE}
+Xmat=data.frame(cbind(W.sample,A.sample))
 my.SL.libs.gn = c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.step","SL.step.interaction","SL.xgboost","SL.mean")
 
-(gn.est = mcSuperLearner(Y = Delta.sample, X = data.frame(cbind(W.sample,A.sample)), family=binomial(link='logit'),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method='method.AUC')) # 10-fold CV
+(gn.est = mcSuperLearner(Y = Delta.sample, X = Xmat, family=binomial(link='logit'),SL.library = my.SL.libs.gn, cvControl = list(V = 10), method='method.CC_nloglik')) # 10-fold CV
 ```
 
-Check to see how well the super learner predictions correspond to the truth propensities:
+Since we created true propensities at the beginning of this program, we can check how well the super learner propensities correspond to the true propensities:
 
 ```{r}
 cor(gn.est$SL.predict,gn.true[sample.i])
@@ -132,20 +173,26 @@ Estimate outcome model using usable data. Note: drtlme::tmp_method.CC_LS adjusts
 
 ```{r}
 my.SL.libs.Qbar = c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridge","SL.step","SL.step.interaction","SL.svm","SL.xgboost","SL.mean")
-(Qbar.est =   mcSuperLearner(Y = Y.sample[Delta.sample==1], X=data.frame(cbind(W.sample,A.sample)[Delta.sample==1,]), family=gaussian(), SL.library = my.SL.libs.Qbar, cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS))
+(Qbar.est =   mcSuperLearner(Y = Y.sample.QC[Delta.sample==1], X=Xmat[Delta.sample==1,], family=gaussian(), SL.library = my.SL.libs.Qbar, cvControl = list(V = 10), method = drtmle:::tmp_method.CC_LS))
 ```      
 
 Predict outcome for all usable and unusable data:
 ```{r}
-Qbar.predict = predict(Qbar.est, newdata = data.frame(cbind(W.sample,A.sample)))[[1]]
+Qbar.predict = predict(Qbar.est, newdata = Xmat)[[1]]
+```
+
+We can check how well superlearner predicted the true Y(1) on the study sample:
+
+```{r}
 cor(Y.sample,Qbar.predict)
 ```
 
 ## Estimate the deconfounded group difference:
 
+We now estimate the deconfounded group difference using DRTMLE. This combines the inverse probability weighted estimates with g-computation in a special regression the results in doubly robust inference (in other words, consistent standard errors even if one of the propensity or outcome models is not correctly specified). 
 ```{r}
 # ASD:
-mean_fconn_asd.SL <- drtmle(Y = Y.sample[A.sample==1],
+mean_fconn_asd.SL <- drtmle(Y = Y.sample.QC[A.sample==1],
                               A = Delta.sample[A.sample==1], # apologies for the notation conflict -- use Delta here
                               W = NULL, # does not do anything with user-input propensities and outcomes
                               a_0 = 1, # set this to one to correspond to counterfactual that all Delta=1
@@ -155,9 +202,9 @@ mean_fconn_asd.SL <- drtmle(Y = Y.sample[A.sample==1],
                               SL_gr = "SL.npreg",
                               maxIter = 1
                             )
-
+      
 # TD:
-mean_fconn_td.SL <- drtmle(Y = Y.sample[A.sample==0],
+mean_fconn_td.SL <- drtmle(Y = Y.sample.QC[A.sample==0],
                               A = Delta.sample[A.sample==0], 
                               W = NULL, 
                               a_0 = 1, 
@@ -168,32 +215,51 @@ mean_fconn_td.SL <- drtmle(Y = Y.sample[A.sample==0],
                               maxIter = 1
                             )
 
+  
 deconfounded.diff = mean_fconn_asd.SL[[1]]$est - mean_fconn_td.SL[[1]]$est
 
-# test the difference between groups:
-z.deconfounded.diff = deconfounded.diff/sqrt(mean_fconn_asd.SL[[1]]$cov+mean_fconn_td.SL[[1]]$cov)
+              # ASIDE: check G-computation estimate:
+              mean(Qbar.predict[A.sample==1])
+              mean_fconn_asd.SL$gcomp
+              # note drtmle will use the predicted values of all children, such that
+              # we estimate the mean fconn integrating across W_c of all ASD children
+              # to contrast, this is the mean predicted value in ASD 
+              # in the biased sample, i.e., usable data only:
+              mean(Qbar.predict[A.sample==1 & Delta.sample==1])
+
+  
 ```
 
 ## Compare the true difference, deconfounded difference, and the naive approach:
 
 ```{r}
-
-ASD.true - TD.true
-
-# the best we can expect given limited sample size:
-mean(Y.sample[A.sample==1])-mean(Y.sample[A.sample==0])
+(true.diff=ASD.true - TD.true)
 
 # our estimate:
 deconfounded.diff
 
-# naive estimate: 
-(naive.diff = mean(Y.sample[A.sample==1 & Delta.sample==1]) - mean(Y.sample[A.sample==0 & Delta.sample==1]))
-
 # hypothesis testing:
 # h_0: no difference between asd and td
-z.deconfounded.diff
-2*(1-pnorm(abs(z.deconfounded.diff)))
+# test the difference between groups:
+se.deconfounded.diff=sqrt(mean_fconn_asd.SL[[1]]$cov+mean_fconn_td.SL[[1]]$cov)
+z.deconfounded.diff = deconfounded.diff/se.deconfounded.diff
 
-t.test(Y.sample[A.sample==1 & Delta.sample==1],Y.sample[A.sample==0 & Delta.sample==1])
+z.deconfounded.diff
+2*(1-pnorm(abs(z.deconfounded.diff))) # pvalue
+
+
+# naive estimate: 
+Y.pass.A1=Y.sample.QC[A.sample==1 & Delta.sample==1]
+Y.pass.A0=Y.sample.QC[A.sample==0 & Delta.sample==1]
+(naive.diff = mean(Y.pass.A1) - mean(Y.pass.A0))
+se.naive.diff = sqrt(var(Y.pass.A1)/length(Y.pass.A1)+var(Y.pass.A0)/length(Y.pass.A0))
+t.test(Y.pass.A1,Y.pass.A0)
+
+# create a plot of the estimates and their SEs:
+mean.data = data.frame('Method'=c('True','Naive','DRTMLE'),'Mean'=c(true.diff,naive.diff,deconfounded.diff),'Mean.Lower'=c(true.diff,naive.diff-1.96*se.naive.diff,deconfounded.diff-1.96*se.deconfounded.diff),'Mean.Upper'=c(true.diff,naive.diff+1.96*se.naive.diff,deconfounded.diff+1.96*se.deconfounded.diff))
+
+ggplot(mean.data, aes(Method, Mean)) + geom_bar(stat = "identity",aes(fill=Method)) + geom_errorbar(aes(ymin=Mean.Lower,ymax=Mean.Upper),width=0.2)+coord_flip() + theme(legend.position = 'none')+scale_fill_manual("legend", values = c("True" = "forestgreen", "Naive" = "red", "DRTMLE"='slateblue'))+theme(text = element_text(size=20))+ylab('ASD - TD')
 
 ```
+
+In this example, the true mean functional connectivity is lower in ASD than TD. The estimate from the naive approach is also negative but closer to zero due to confounding. Additionally, the standard errors are large, and the naive t test indicates there is not a significant difference between ASD and TD. In DRTMLE, we see the deconfounded group difference is closer to the truth, and we also see that there is a significant difference from zero. 
