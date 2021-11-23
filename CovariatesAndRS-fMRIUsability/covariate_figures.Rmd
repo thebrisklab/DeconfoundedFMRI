@@ -133,8 +133,6 @@ qcMelt$Included <- factor(qcMelt$Included, levels=c("Pass", "Fail"))
 #rename levels of value
 levels(qcMelt$Included) <- c("Included", "Excluded")
 
-with(qcMelt, table(PrimaryDiagnosis, Motion.Exclusion.Level, Included))
-
 ```
 Motion QC levels:
 
@@ -195,8 +193,17 @@ completeCases <- filter(qcMelt, CompletePredictorCases==1)
 #make M reference level for sex
 completeCases$Sex <- relevel(as.factor(completeCases$Sex), "M")
 
+#labels for table
+labels(completeCases) <- c(PrimaryDiagnosis = 'Diagnosis',
+                           AgeAtScan = 'Age in Years',
+                           Sex = 'Sex',
+                           handedness = 'Handedness',
+                           Race2 = 'Race',
+                           SES.Family = 'Socioeconomic Status',
+                           CurrentlyOnStimulants = 'Currently on Stimulants?')
+
 #use chisq for Sex and handedness, kruskal-wallis rank test for Age
-tabSex<- tableby( PrimaryDiagnosis~Sex+AgeAtScan+handedness+YearOfScan+HeadCoil, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
+tabSex<- tableby( PrimaryDiagnosis~Sex+AgeAtScan+handedness, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="chisq", total=FALSE))
 
 #use fisher's exact test for Race, k-w for SES
 tabRace<- tableby( PrimaryDiagnosis~Race2+SES.Family, data=filter(completeCases, Motion.Exclusion.Level=="None" & Included=="Included"), control=tableby.control(numeric.test="kwt", cat.test="fe", total=FALSE))
@@ -342,14 +349,21 @@ graph %>% export_svg() %>%
   charToRaw() %>% 
   rsvg_png("Figures/exclusionFlowChart.png", width = 1500, heigh = 500)
 
+#numbers for Fig 1a
+tabN<- tableby(Motion.Exclusion.Level~
+                 Included, data=filter(completeCases, Motion.Exclusion.Level!="None"))
+summary(tabN,  
+        title='Proportion of complete cases included/excluded by motion QC',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
+
 graph
 
 ```
 
+**Figure 1a. Motion quality control leads to dramatic reductions in sample size.** Flow chart of inclusion criteria for this study showing the number of participants remaining after each exclusion step. Lenient motion quality control (QC) excluded 20% of complete predictor cases, while strict motion QC excluded 66% of complete predictor cases.
+
 #### Figure 1b. Proportion excluded stratified by Primary Diagnosis and motion QC level
 #### Define theme for proportion excluded plots
 ```{r, results='hide'}
-#Easier to make three separate panels and combine them than to use faceting function
 My_Theme_prop = theme_light()+theme(
   legend.title =element_blank(),
   axis.title.x = element_text(size = 12),
@@ -403,14 +417,16 @@ ex_chisq <- exNest %>%
 
 ex_chisq
 
+dx_proportions
+
 ```
 
-#### Figure 1b. Numbers
+
+**Figure 1b. Motion quality control leads to dramatic reductions in sample size.** The proportion of children in each diagnosis group whose scans were included (yellow) and excluded (lavender) using the strict (left) and lenient (right panel) gross motion QC. A larger proportion of children in the autism spectrum disorder (ASD) group were excluded compared to typically developing (TD) children using lenient motion QC ($\chi^2$=10.3, df = 1, p=0.001) and strict ($\chi^2$=19.9, df = 1, p<0.00001).
+
+#### Figure 1b. Numbers for main text
 ```{r, results="asis"}
-tabN<- tableby(Motion.Exclusion.Level~
-                 Included, data=filter(completeCases, Motion.Exclusion.Level!="None"))
-summary(tabN,  
-        title='Proportion of complete cases included/excluded by motion QC',digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
+
 tabASD<- tableby(Motion.Exclusion.Level~Included, data=filter(completeCases,
                                                                     PrimaryDiagnosis=="ASD"))
 summary(tabASD,  
@@ -423,6 +439,7 @@ summary(tabTD,
         digits=0, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=FALSE, test=FALSE)
 
 ```
+
 
 The proportion of children excluded differs across diagnostic groups using both the lenient and strict motion QC.
 
@@ -450,7 +467,8 @@ levels(aim1$variable) <- c("ADOS", "SRS", "Motor Overflow", "Inattention",
 aim1G <- group_by(aim1, PrimaryDiagnosis, Motion.Exclusion.Level, Included, variable)
 ```
 
-#### Fit univarate GAMs
+#### Fit univarate GAMs. 
+We used univariate models rather than a model with all covariates simultaneously because some of the variables are correlated, such that the impact of each variable on rs-fMRI usability may be difficult to estimate. These models are related to the propensity models that will be used in the estimation of the deconfounded group difference.
 ```{r}
 aim1$delta = rep(NA,length=nrow(aim1))
 aim1$delta = ifelse(aim1$Included=="Included",1,0)
@@ -658,7 +676,9 @@ p_gai <- ggplot(gai, aes(x=range, y=fit))+
   theme(plot.title = element_text(size = 11, hjust = 0.5))+
   theme(axis.title.y = element_blank())
 
-p_legend = cowplot::get_legend(p_gai + guides(color = guide_legend(nrow = 1))+theme(legend.position = "bottom", legend.text = element_text(size = 11),   legend.key.size=unit(.15, "in")))
+p_legend = cowplot::get_legend(p_gai + guides(color = guide_legend(nrow = 1))+
+                                 theme(legend.position = "bottom", legend.text = element_text(size = 11),
+                                       legend.key.size=unit(.15, "in")))
 
 ```
 
@@ -862,6 +882,8 @@ cowplot::plot_grid(p_legend, top_row, NULL, bottom_row, NULL, hist_legend, nrow=
 ```
 NOTE: 19 rows = # of participants with missing Motor Overflow scores (imputed for the DRTMLE of the deconfounded group difference)
 
+**Figure 2. rs-fMRI exclusion probability changes with age and symptom severity.** Univariate analysis of rs-fMRI exclusion probability as a function of participant characteristics. From left to right: Autism Diagnostic Observation Schedule (ADOS), social responsiveness scale (SRS) scores, inattentive symptoms, hyperactive/impulsive symptoms, total motor overflow, age, and general ability index (GAI) using the lenient (lavender lines, all FDR-adjusted p<0.01), and strict (red lines) motion quality control (all FDR-adjusted p<0.03). Phenotypic distributions for each diagnosis group (included and excluded scans) are displayed across the bottom panel (TD=typically developing, green; ASD=autism spectrum disorder, yellow).
+
 ### 3.1.3. Phenotype and age representations differ between included and excluded children
 #### 3.1.3. Mann-Whitney U tests to compare included vs excluded participants using lenient motion QC (13 tests)
 ```{r}
@@ -1033,6 +1055,7 @@ paper_ados <- ggplot(ados, aes(Motion.Exclusion.Level, value, fill = Included, c
   ggtitle("ADOS")
 
 ```
+
 #### Checking positivity assumption for DRTMLE
 ```{r}
 ados %>% filter(Motion.Exclusion.Level=="Lenient" & Included=="Excluded") %>% select(value) %>% max()
@@ -1298,6 +1321,7 @@ cowplot::plot_grid(fig2A, fig2B, ncol=2, rel_widths=c(.2, 1.2))
 
 ```
 
+**Figure 3. Participants with usable rs-fMRI data differed from participants with unusable rs-fMRI data.** Comparison of Autism Diagnostic Observation Schedule (ADOS) scores, social responsiveness scale (SRS) scores, inattentive symptoms, hyperactive/impulsive symptoms, motor overflow, age, and general ability index (GAI) for included (yellow) and excluded (lavender) participants stratified by diagnosis group and motion exclusion level. The deconfounded mean integrates across the diagnosis-specific distribution of usable and unusable covariates, which here is labeled as ``None.'' We controlled for 13 comparisons performed for the lenient and strict motion QC cases using the false discovery rate (FDR). ** indicate differences between included and excluded participants with an FDR-adjusted p value <0.05; * indicate FDR-adjusted p values <0.1. A larger number of significant differences are observed using the lenient motion QC than the strict motion QC, but very few participants pass strict motion QC. autism spectrum disorder (ASD), typically developing (TD).
 
 ### 3.1.4. Functional connectivity as a function of phenotype and age
 
@@ -1537,6 +1561,8 @@ dev.off()
 cowplot::plot_grid(fc_hist, hist_p_legend, nrow=2, rel_heights=c(1, .1))
 
 ```
+
+**Figure 4. Some covariates related to rs-fMRI exclusion probability are also related to functional connectivity.** *Histograms of p values for generalized additive models of the relationship between edgewise functional connectivity in participants with usable rs-fMRI data and (from left to right) ADOS, social responsiveness scale (SRS) scores, inattentive symptoms, hyperactive/impulsive symptoms, total motor overflow as assessed during the Physical and Neurological Exam for Subtle Signs, age, and general ability index (GAI). For a given covariate, a clustering of p values near zero suggests that covariate is associated with functional connectivity for a greater number of edges. Several covariates appear to be related to functional connectivity using both the lenient motion quality control (lavender bins) and the strict motion quality control (red bins).
 
 #### Extra. Impact of motion QC on framewise displacement metrics
 ```{r}

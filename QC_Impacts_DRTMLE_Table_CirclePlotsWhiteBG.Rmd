@@ -1,7 +1,7 @@
 ---
 title: "Tables and Circle Plots comparing Naive and DRTMLE group differences"
 author: "MB Nebel"
-date: "10/30/2021"
+date: '`r Sys.Date()`'
 output: html_document
 ---
 
@@ -189,7 +189,7 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
 ```{r}
 results.all=NULL
 for (i in 1:200) {
-  load(paste0('../Results/Results_05October2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
+  load(paste0('../Results/Results_19November2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
   results.all = rbind(results.all,results.df)
 }
 rm(results.df)
@@ -197,7 +197,7 @@ rm(results.df)
 # second set of seeds:
 results.all2=NULL
 for (i in 201:400) {
-  load(paste0('../Results/Results_05October2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
+  load(paste0('../Results/Results_19November2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
   results.all2 = rbind(results.all2,results.df)
 }
 rm(results.df)
@@ -215,7 +215,7 @@ results.ave = rbind(results.all,results.all2) %>%
             mean.diff.naive=mean(mean.diff.naive), 
             z.stat.ASD.naive=mean(z.stat.ASD.naive),
             z.stat.TD.naive=mean(z.stat.TD.naive),
-            z.stat.diff.naive=round(mean(z.stat.diff.naive), digits = 4),
+            z.stat.diff.naive=round(mean(z.stat.diff.naive), digits = 3),
             mean.ASD.SL=round(mean(mean.ASD.SL), digits = 3), 
             mean.TD.SL=round(mean(mean.TD.SL), digits = 3),
             mean.diff.SL=round(mean(mean.diff.SL), digits = 3), 
@@ -235,21 +235,28 @@ results.ave$td.p.SL.fdr = round(p.adjust(results.ave$td.p.SL,method='BH'), digit
 
 ```
 
-#### Determine edges showing a significant group difference
+#### Determine edges showing a significant group difference FDR=.05
 ```{r}
 fdr05.edges.SL = which(results.ave$p.SL.fdr<.05) 
 fdr05.edges.naive = which(results.ave$p.naive.fdr<.05) 
 
+all(fdr05.edges.naive %in% fdr05.edges.SL)
+
+```
+
+All edges indicated by naive approach are also indicated by DRTMLE at the FDR=0.05 level
+
+
+
+#### Determine edges showing a significant group difference FDR=.20
+```{r}
 fdr20.edges.SL = which(results.ave$p.SL.fdr<.20) 
 fdr20.edges.naive = which(results.ave$p.naive.fdr<.20) 
 
-fdr05.td.edges.SL = which(results.ave$td.p.SL.fdr<.05) 
-fdr05.td.edges.naive = which(results.ave$td.p.naive.fdr<.05) 
-
-fdr20.td.edges.SL = which(results.ave$td.p.SL.fdr<.20) 
-fdr20.td.edges.naive = which(results.ave$td.p.naive.fdr<.20) 
+all(fdr20.edges.naive %in% fdr20.edges.SL)
 
 ```
+All edges indicated by naive approach are also indicated by DRTMLE at the FDR=0.2 level
 
 #### Remove background from .pngs of IC maps
 ```{r}
@@ -282,9 +289,6 @@ dev.off()
 
 circos.clear()
 
-myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.05,alphaname='p.naive.fdr',title='A. Naive Z-Statistic, ASD-TD, FDR=0.05')
-
-circos.clear()
 
 ```
 
@@ -297,10 +301,17 @@ dev.off()
 
 circos.clear()
 
-myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.05')
+```
+
+#### Print a and b together for report
+```{r, echo=FALSE}
+myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.05,alphaname='p.naive.fdr',title='A. Naive Z-Statistic, ASD-TD, FDR=0.05')
 
 circos.clear()
 
+myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.05')
+
+circos.clear()
 ```
 
 #### Create table displaying group Z-statistics from DRTMLE for edges showing a group difference at FDR=.20
@@ -345,11 +356,6 @@ dev.off()
 
 circos.clear()
 
-myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.20,alphaname='p.naive.fdr',title='A. Naive Z-Statistic, ASD-TD, FDR=0.20')
-
-circos.clear()
-
-
 ```
 
 #### DRTMLE ASD-TD Z-Statistic FDR=0.20
@@ -362,9 +368,18 @@ dev.off()
 
 circos.clear()
 
-myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.20')
+```
+
+#### Print a and b together for .html
+```{r, echo=FALSE}
+myChordDiagram(data=results.ave,varname='z.stat.diff.naive',alpha=0.20,alphaname='p.naive.fdr',title='A. Naive Z-Statistic, ASD-TD, FDR=0.20')
 
 circos.clear()
 
+myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.20,alphaname='p.SL.fdr',title='B. DRTMLE Z-Statistic, ASD-TD, FDR=0.20')
+
+circos.clear()
 ```
 
+
+**Figure 5. The DRTMLE deconfounded group difference revealed more extensive differences than the naïve approach.** Z-statistics for autism spectrum disorder (ASD) versus typically developing (TD) using a) the na\"ive test and b) using DRTMLE. Connections are thresholded using a false discovery rate (FDR) of  0.20. Blue lines indicate ASD>TD (3 in na\"ive, 4 in DRTMLE). Red lines indicate ASD<TD (3 in na\"ive, 7 in DRTMLE). Brain regions contributing to each independent component are illustrated and components are grouped by functional assignment. Navy nodes: control. Blue violet: default mode. Purple: salience/ventral attention. Magenta: pontomedullary/cerebellar. Coral: somatomotor. Orange: visual. Yellow: dorsal attention.
