@@ -234,7 +234,7 @@ print(tab, type="latex")
 
 ### 3.1.1. The impact of motion QC on sample size
 #### Figure 1a. Exclusion flowchart
-```{r, fig1a, echo=FALSE, dev='png'}
+```{r, fig1a, echo=FALSE, dev='png', results="asis"}
 #total number of scans attempted
 nAttempted <- qcMelt %>% 
   filter(Motion.Exclusion.Level=="None") %>% 
