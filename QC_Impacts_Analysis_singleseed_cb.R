@@ -1,27 +1,28 @@
 # brisk
 # This code is modified to be used locally or on a cluster. 
 
-
+local=FALSE
 # Change this for cluster or local:
-#setwd('~/Dropbox/QualityControlImpactsFMRI')
-setwd('~/risk_share/QualityControlImpacts')
-save.input.data = FALSE
-#save.input.data = TRUE
+if(local){
+    setwd('~/Dropbox/QualityControlImpactsFMRI')
+    save.input.data = TRUE
+    getOption("mc.cores")
+    options(mc.cores=8)
+    seed=1
+  } else {
+    setwd('~/risk_share/QualityControlImpacts')
+    save.input.data = FALSE
+    options(mc.cores=1)
+    seed = seedID
+}
+ 
 
-#(num_cores = RhpcBLASctl::get_num_cores())
 a = .libPaths()
 .libPaths(c('/home/benjamin.risk/Rlibs',a))
 
 .libPaths()
-#install.packages("drtmle",repos = 'https://cloud.r-project.org')
 
 getOption("mc.cores")
-#options(mc.cores=8)
-options(mc.cores=1)
-getOption("mc.cores")
-#seed=1
-seed = seedID
-
 set.seed(seed, "L'Ecuyer-CMRG")
 
 tic = proc.time()
@@ -110,12 +111,13 @@ table(is.na(dat2[,startEdgeidx]) & dat2$KKI_criteria=='Pass')
 
 # Create a variable r.ic1.ic2 for each signal pairing that 
 # contains the residuals from the three motion variables
-temp = dat2[,c('PrimaryDiagnosis','MeanFramewiseDisplacement','MaxFramewiseDisplacement',"FramesWithFDLessThanOrEqualTo250microns","Sex","Race2","SES.Family","ic1.ic2")]
+temp = dat2[,c('PrimaryDiagnosis','MeanFramewiseDisplacement.KKI','MaxFramewiseDisplacement.KKI',"FramesWithFDLessThanOrEqualTo250microns","Sex","Race2","SES.Family","ic1.ic2")]
 completeCases = complete.cases(temp)
 
 t.values.lm=NULL
 t.values.naive=NULL
-  
+
+lm.variables=c('MeanFramewiseDisplacement.KKI')
 # NOTE: for better interpretation of the plot of mean changes, center all variables:
 for (i in c(startEdgeidx:endEdgeidx)) {
   model.temp = lm(dat2[,i]~scale(dat2$MeanFramewiseDisplacement.KKI,center = TRUE, scale=FALSE)+scale(dat2$MaxFramewiseDisplacement.KKI,center=TRUE,scale=FALSE)+scale(dat2$FramesWithFDLessThanOrEqualTo250microns,center=TRUE,scale=FALSE)+dat2$Sex+dat2$Race2+scale(dat2$SES.Family,center=TRUE,scale=FALSE)+dat2$PrimaryDiagnosis)
@@ -205,10 +207,10 @@ gn.variables = c('KKI_criteria','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan',
 
 # these indices will be used in the outcome model and drtmle as well:
 temp.data = dat2[,c(gn.variables)]
-# missingness in the model with imputation:
-vis_miss(temp.data[order(temp.data$PrimaryDiagnosis),])
 
-idx.all.cc = complete.cases(temp.data)
+# note: include variables from the linear model here to define a consistent set of
+# complete predictor cases for the propensity and outcome models
+idx.all.cc = complete.cases(temp.data) & complete.cases(dat2[,c('Sex','SES.Family','Race2')])
 temp.data = temp.data[idx.all.cc,]
 #temp.data$AgeAtScanXdx = (temp.data$PrimaryDiagnosis=='Autism')*temp.data$AgeAtScan
 #AgeAtScan
@@ -216,6 +218,13 @@ gn.xmat = data.frame(model.matrix(KKI_criteria~.,data=temp.data)[,-1])
 
 Delta.KKI = ifelse(temp.data$KKI_criteria=='Pass',1,0)
 #corrplot::corrplot(cor(gn.xmat),method='number')
+
+# Create a variable equal to one if the observation is used:
+# NOTE: due to missing observations in variables in the initial linear
+# model, need to include linear model variables in this: 
+dat2$CompletePredictorCases = idx.all.cc
+sum(dat2$CompletePredictorCases)
+
 
 # fit with glm and gam: eventually, compare AUCs
 glm.prop.model = glm(Delta.KKI~as.matrix(gn.xmat),family=binomial)
@@ -245,10 +254,6 @@ dat3 = merge(dat2,prop.asdtd,all = TRUE) # here, we keep all observations
 # this merge changes the ordering of ID. Hence, new index vectors are created,
 # and new xmat need to be made even when using the same variables in the 
 # propensity and outcome models
-# Create a variable equal to one if the observation is used:
-# NOTE: due to missing observations in variables in the initial linear
-# model, need to include r.ic1.ic2 in this: 
-dat3$CompletePredictorCases = complete.cases(dat3[,c(gn.variables,'r.ic1.ic2')])
 
 # save datasets to be loaded for DRTMLE:
 # NOTE: These datasets include the propensities, which change with each seed:
@@ -270,7 +275,7 @@ Qn.variables =  gn.variables
 #NOTE: KKI_criteria is not used in prediction, but is included as a trick to construct the design matrix
 
 # complete cases pass defined by pass, no missing propensities (behavioral variables), and no missing fconn (driven by the initial linear model with imbalanced variables)
-idx.pass.cc = dat3$KKI_criteria=='Pass' & !is.na(dat3$propensities.SL) & !is.na(dat3$r.ic1.ic2)
+idx.pass.cc = dat3$KKI_criteria=='Pass' & !is.na(dat3$propensities.SL)
 # use in naive estimates in for loop:
 idx.pass.cc.asd = idx.pass.cc & dat3$PrimaryDiagnosis=='Autism'
 idx.pass.cc.td = idx.pass.cc & dat3$PrimaryDiagnosis=='None'
