@@ -22,7 +22,7 @@ library(png)
 ###################
 results.all=NULL
 for (i in 1:200) {
-  load(paste0('../Results/Results_10September2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
+  load(paste0('../Results/Results_05October2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
   results.all = rbind(results.all,results.df)
 }
 rm(results.df)
@@ -30,7 +30,7 @@ rm(results.df)
 # second set of seeds:
 results.all2=NULL
 for (i in 201:400) {
-  load(paste0('../Results/Results_10September2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
+  load(paste0('../Results/Results_05October2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
   results.all2 = rbind(results.all2,results.df)
 }
 rm(results.df)

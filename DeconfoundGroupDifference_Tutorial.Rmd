@@ -19,15 +19,21 @@ set.seed(seed, "L'Ecuyer-CMRG")
 ```
 
 ## Summary
-Our parameter of interest is the difference in functional connectivity between ASD and typically developing (TD) children. For ASD, our goal is to calculate the mean functional connectivity across the spectrum of ASD severity.
+This tutorial has two goals: 
 
-Here, we will create a variable $W_c$ that will be driving the confounding between data usability and functional connectivity. The idea is to create a variable similar to a measure of ASD severity, such that the distribution of $W_c$ differs by diagnosis. Let $A$ denote diagnosis, where $A=1$ denotes ASD and $A=0$ denotes typically developing (TD). Then $W_c$ is equal to zero when $A=0$ and is log normal when $A=1$. We also create some additional covariates to make the estimation a little harder, and we call the vector of $W_c$ and the additional covariates $W$. In this example, there is confounding in the ASD functional connectivity but not in TD. We could also simulate confounding in the TD, for example, caused by a biased distribution of ages. Here, we keep things simple and only create confounding in the ASD group, which in turn creates confounding in the difference between groups. 
+1. to show how a covariate related to data usability, ASD severity, and functional connectivity can introduce confounding
+2. to show how DRTMLE adjusts for this confounding
 
-We create a huge dataset, which we call the population sample, that is used to calculate the population parameter of interest, $E^*[Y(1)|A=1]-E^*[Y(1)|A=0]$ (approximating the integration via simulation). Here, $Y(1)$ denotes functional connectivity in the counterfactual world in which data are usable. We create an example where $W_c$ impacts data usability ($\Delta=1$) and is related to functional connectivity, $Y(1)$, such that restricting the analysis to children with usable data results in confounding. We will create a smaller sample, called the study sample, and show we can estimate the target parameter, $E[E[Y|\Delta=1,A=1,W]|A=1] - E[E[Y|\Delta=1,A=0,W]|A=0]$, to obtain an estimate of the true difference in functional connectivity. 
+Our parameter of interest is the difference in functional connectivity between ASD and typically developing (TD) children. For the ASD group, our goal is to calculate the mean functional connectivity across the spectrum of autism severity.
+
+We create a variable $W_c$ that drives the confounding between data usability and functional connectivity. The idea is to create a variable similar to a measure of ASD severity, such that the distribution of $W_c$ differs by diagnosis. Let $A$ denote diagnosis, where $A=1$ denotes ASD and $A=0$ denotes TD. Then $W_c$ is log normal when $A=1$ and equal to zero when $A=0$. We also create additional covariates to make the estimation a little harder, and we call the vector of $W_c$ and the additional covariates $W$. In this example, there is confounding in the ASD functional connectivity but not in the TD functional connectivity. We could also simulate confounding in the TD, for example, caused by a biased distribution of ages. Here, we keep things simple and only create confounding in the ASD group, which in turn creates confounding in the difference between groups. 
+
+We create a huge dataset, which we call the population sample, that is used to calculate the population parameter of interest, $E^*[Y(1)|A=1]-E^*[Y(1)|A=0]$ (approximating the integration via simulation). Here, $Y(1)$ denotes functional connectivity in the counterfactual world in which all data are usable. We create an example where $W_c$ impacts data usability ($\Delta=1$) and is related to functional connectivity, $Y(1)$, such that restricting the analysis to children with usable data results in confounding. 
+We will create a smaller sample, called the study sample, and show we can estimate the target parameter, $E[E[Y|\Delta=1,A=1,W]|A=1] - E[E[Y|\Delta=1,A=0,W]|A=0]$, to obtain an estimate of the true difference in functional connectivity. 
 
 ## Simulate diagnosis-specific distribution of behavioral variables 
 
-First, we will simulate a joint distribution of $[A,W_c]$, creating a path $A \leftrightarrow W_c$. We will also create nine more behavioral variables that do not impact the population parameter of interest, but will make the estimation of the deconfounded group difference a little harder.
+First, we simulate a joint distribution of $[A,W_c]$, creating a path $A \leftrightarrow W_c$. We will also create nine more behavioral variables that do not impact the population parameter of interest but will make the estimation of the deconfounded group difference a little harder.
 
 ```{r simdata1}
 p=10 # number of covariates
@@ -62,9 +68,10 @@ mean(Delta[A==0])
 
 The difference between the distribution of $W_c$ in the full sample and the distribution of $W_.sample_c$ in the usable sample is the sampling bias caused by motion QC. 
 
-```{r}
-mean(W_c[A==1]) # mean of W_c in all ASD children
-mean(W_c[A==1 & Delta==1]) # mean of W_c in ASD children with usable data
+
+```{r, fig.width = 8}
+w_all = mean(W_c[A==1]) # mean of W_c in all ASD children
+w_usable = mean(W_c[A==1 & Delta==1]) # mean of W_c in ASD children with usable data
 
 par(mfrow=c(1,2))
 hist(W_c[A==1], main='A) ASD severity in full sample',xlim=c(0,35))
@@ -74,7 +81,9 @@ hist(W_c[A==1 & Delta==1],main='B) ASD severity in usable sample',xlim=c(0,35))
 abline(v=mean(W_c[A==1 & Delta==1]),col='red')
 ```
 
-The full sample (Panel A) represents the distribution of ASD severity with respect to which we desire to calculate $E[E[Y(1)|W,A=1]|A=1]$. Note the inner expectation is a random variable in W, then the outer expectation will integrate with respect to the full distribution of W. The usable sample (Panel B) represents the distribution of ASD severity in children that pass the motion quality control criteria. In the naive approach, the mean of ASD functional connectivity is in fact an estimate of $E[Y|A=1,\Delta=1]=E[E[Y|A=1,W,\Delta=1]|A=1,\Delta=1]$, i.e., it calculates average functional connectivity across the biased sample.
+The mean severity in the full sample (**`r toString(round(w_all, digits=3))`**, Panel A) is higher than the mean severity in the sample with usable data (**`r toString(round(w_usable, digits=3))`**, Panel B). 
+
+The full sample (Panel A) represents the distribution of ASD severity with respect to which we desire to calculate $E[E[Y(1)|W,A=1]|A=1]$. Note the inner expectation is a random variable in W; then the outer expectation will integrate with respect to the full distribution of W. The usable sample (Panel B) represents the distribution of ASD severity in children that pass the motion quality control criteria. In the naive approach, the mean of ASD functional connectivity is in fact an estimate of $E[Y|A=1,\Delta=1]=E[E[Y|A=1,W,\Delta=1]|A=1,\Delta=1]$, i.e., it calculates average functional connectivity across the biased sample.
 
 ## Simulate path between ASD severity and functional connnectivity. 
 For the sampling bias to impact the functional connectivity, there must be dependence between the variables with biased sampling distributions and functional connectivity. Here, we simulate $W_c \rightarrow Y$. We use a simple linear effect, slope=-0.2, although superLearner allows more complicated relationships. We also simulate $A \rightarrow Y$. We simulate an example where the conditional effect of ASD is positive, i.e., $E[Y(1)|A=1,W=w] - E[Y(1)|A=0,W=w] = 1.4$, but the marginalized effect of $A$ is negative, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0] < 0$. This set up will result in large confounding when the data are later restricted to usable observations. (This aspect is not necessary for confounding, but helps illustrate the importance of the deconfounded group difference.) The output of this step is a sample of $Y(1)$, the data in the counterfactual world in which all data are usable, in particular, we have realizations of functional connectivity for all values of $W_c$ and not just those with usable data.  
@@ -90,21 +99,25 @@ Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)
 ```
 
 
-Next, we calculate the "true" ASD fconn and "true" TD, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0]$:
+Next, we calculate the "true" mean functional connectivity (fconn) within the ASD group and the "true" mean within the TD group, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0]$:
 
 ```{r}
 (ASD.true = mean(Y[A==1]))
 (TD.true = mean(Y[A==0]))
 ```
 
+The "true" population group difference in functional connectivity is then ASD.true - TD.true = **`r toString(round(ASD.true-TD.true, digits = 4))`**.
+
 Next, we calculate the naive means in the population sample, $E[Y|A=1,\Delta=1]=E[E[Y|A=1,\Delta=1,W]|A=1,\Delta]$, resulting from confounding with usability:
 
 ```{r}
-mean(Y[A==1 & Delta==1])
-mean(Y[A==0 & Delta==1])
+(ASD.naive = mean(Y[A==1 & Delta==1]))
+(TD.naive = mean(Y[A==0 & Delta==1]))
 ```
 
-## Next, create a study sample with realistic sample size.
+The "naive" group difference in functional connectivity is then ASD.naive - TD.naive = **`r toString(round(ASD.naive-TD.naive, digits = 4))`**.
+
+## Next, create a study sample with a realistic sample size.
 
 This creates a smaller sample (e.g., 550) that will be input into drtmle, which we call the study sample.
 ```{r}
@@ -118,13 +131,15 @@ W.sample = W[sample.i,]
 In this sample, we have the realizations of $Y(1)$. We can calculate the group difference using the $Y(1)$ on this more limited sample, which in some sense represents the best we can expect given limited sample size (the difference between this and truth reflects the small-ish sample size). Since the $W_c$ has high variability, we expect this sample to exhibit some departure from the full sample:
 
 ```{r}
-mean(Y.sample[A.sample==1])
-mean(Y.sample[A.sample==0])
+(ASD.sample = mean(Y.sample[A.sample==1]))
+(TD.sample = mean(Y.sample[A.sample==0]))
 ```
+
+The "true" sample group difference in functional connectivity is then ASD.sample - TD.sample = **`r toString(round(ASD.sample-TD.sample, digits = 4))`**, which is very close to the true population group difference (`r toString(round(ASD.true-TD.true, digits = 4))`).
 
 ## Make unusable data equal to missing
 
-Now we will over-write the Y(1) to be equal to missing for the children with data that are unusable. 
+Now we will overwrite the Y(1) to be equal to missing for the children with data that are unusable. 
 
 ```{r}
 Y.sample.QC=Y.sample
@@ -189,30 +204,32 @@ cor(Y.sample,Qbar.predict)
 
 ## Estimate the deconfounded group difference:
 
-We now estimate the deconfounded group difference using DRTMLE. This combines the inverse probability weighted estimates with g-computation in a special regression the results in doubly robust inference (in other words, consistent standard errors even if one of the propensity or outcome models is not correctly specified). 
-```{r}
+We now estimate the deconfounded group difference using DRTMLE. This combines the inverse probability weighted estimates with g-computation in a special regression that results in doubly robust inference (in other words, consistent standard errors even if either the propensity or outcome model is not correctly specified). 
+```{r, tidy=TRUE}
 # ASD:
 mean_fconn_asd.SL <- drtmle(Y = Y.sample.QC[A.sample==1],
-                              A = Delta.sample[A.sample==1], # apologies for the notation conflict -- use Delta here
-                              W = NULL, # does not do anything with user-input propensities and outcomes
-                              a_0 = 1, # set this to one to correspond to counterfactual that all Delta=1
-                              Qn = list(Qbar.predict[A.sample==1]), # pass in fitted outcome values
-                              gn = list(gn.est$SL.predict[A.sample==1]), # pass in fitted propensities
-                              SL_Qr = "SL.npreg", # uses non-parametric regression in the drtmle step
-                              SL_gr = "SL.npreg",
-                              maxIter = 1
+                            A = Delta.sample[A.sample==1], # apologies for the notation conflict -- use Delta here
+                            W = NULL, # does not do anything with user-input propensities and outcomes
+                            a_0 = 1, # set this to one to correspond to counterfactual that all Delta=1
+                            Qn = list(Qbar.predict[A.sample==1]), # pass in fitted outcome values
+                            gn = list(gn.est$SL.predict[A.sample==1]), # pass in fitted propensities
+                            SL_Qr = "SL.npreg", # uses non-parametric regression in the drtmle step
+                            SL_gr = "SL.npreg",
+                            maxIter = 1,
+                            stratify=TRUE #ensures that unusable functional connectivity values are not used at all in model fitting
                             )
       
 # TD:
 mean_fconn_td.SL <- drtmle(Y = Y.sample.QC[A.sample==0],
-                              A = Delta.sample[A.sample==0], 
-                              W = NULL, 
-                              a_0 = 1, 
-                              Qn = list(Qbar.predict[A.sample==0]),
-                              gn = list(gn.est$SL.predict[A.sample==0]), 
-                              SL_Qr = "SL.npreg",
-                              SL_gr = "SL.npreg",
-                              maxIter = 1
+                           A = Delta.sample[A.sample==0], 
+                           W = NULL, 
+                           a_0 = 1, 
+                           Qn = list(Qbar.predict[A.sample==0]),
+                           gn = list(gn.est$SL.predict[A.sample==0]), 
+                           SL_Qr = "SL.npreg",
+                           SL_gr = "SL.npreg",
+                           maxIter = 1, 
+                           stratify=TRUE
                             )
 
   
