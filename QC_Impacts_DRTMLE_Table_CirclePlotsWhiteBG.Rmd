@@ -228,11 +228,6 @@ results.ave$p.naive.fdr = round(p.adjust(results.ave$p.naive,method='BH'), digit
 results.ave$p.SL = 2*(1-pnorm(abs(results.ave$z.stat.diff.SL)))
 results.ave$p.SL.fdr = round(p.adjust(results.ave$p.SL,method='BH'), digits = 3)
 
-results.ave$td.p.naive = 2*(1-pnorm(abs(results.ave$z.stat.TD.naive)))
-results.ave$td.p.naive.fdr = round(p.adjust(results.ave$td.p.naive,method='BH'), digits = 3)
-results.ave$td.p.SL = 2*(1-pnorm(abs(results.ave$z.stat.TD.SL)))
-results.ave$td.p.SL.fdr = round(p.adjust(results.ave$td.p.SL,method='BH'), digits = 3)
-
 ```
 
 #### Determine edges showing a significant group difference FDR=.05
