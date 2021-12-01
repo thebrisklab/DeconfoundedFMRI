@@ -290,32 +290,6 @@ summary(tabfdr05,
 ```
 
 
-#### Determine edges showing a significant group difference FDR=.20
-```{r}
-fdr20.edges.SL = which(results.ave$p.SL.fdr<.20) 
-fdr20.edges.naive = which(results.ave$p.naive.fdr<.20) 
-
-all(fdr20.edges.naive %in% fdr20.edges.SL)
-
-```
-All edges indicated by naive approach are also indicated by DRTMLE at the FDR=0.2 level
-
-#### Summary of network pairs showing a significant group difference using the naive approach, FDR=.2
-```{r, results='asis'}
-tabfdr2n<- tableby(net1 ~ net2,
-                 data=filter(results.ave , p.naive.fdr<.2))
-summary(tabfdr2n,  
-        title='Network pairs showing a group difference using DRTMLE FDR=.2',digits=1, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=TRUE, test=FALSE)
-```
-
-#### Summary of network pairs showing a significant group difference using DRTMLE, FDR=.2
-```{r, results='asis'}
-tabfdr2<- tableby(net1 ~ net2,
-                 data=filter(results.ave , p.SL.fdr<.2))
-summary(tabfdr2,  
-        title='Network pairs showing a group difference using DRTMLE FDR=.2',digits=1, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=TRUE, test=FALSE)
-```
-
 #### Remove background from .pngs of IC maps
 ```{r}
 #create directory to save pngs with transparent background
@@ -372,6 +346,32 @@ myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p
 circos.clear()
 ```
 
+#### Determine edges showing a significant group difference FDR=.20
+```{r}
+fdr20.edges.SL = which(results.ave$p.SL.fdr<.20) 
+fdr20.edges.naive = which(results.ave$p.naive.fdr<.20) 
+
+all(fdr20.edges.naive %in% fdr20.edges.SL)
+
+```
+All edges indicated by naive approach are also indicated by DRTMLE at the FDR=0.2 level
+
+#### Summary of network pairs showing a significant group difference using the naive approach, FDR=.2
+```{r, results='asis'}
+tabfdr2n<- tableby(net1 ~ net2,
+                 data=filter(results.ave , p.naive.fdr<.2))
+summary(tabfdr2n,  
+        title='Network pairs showing a group difference using the naive approach, FDR=.2',digits=1, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=TRUE, test=FALSE)
+```
+
+#### Summary of network pairs showing a significant group difference using DRTMLE, FDR=.2
+```{r, results='asis'}
+tabfdr2<- tableby(net1 ~ net2,
+                 data=filter(results.ave , p.SL.fdr<.2))
+summary(tabfdr2,  
+        title='Network pairs showing a group difference using DRTMLE, FDR=.2',digits=1, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=TRUE, test=FALSE)
+```
+
 #### Create table displaying group Z-statistics from DRTMLE for edges showing a group difference at FDR=.20
 ```{r, results="asis"}
 # group means for edges showing a group difference using DRTMLE:
@@ -379,7 +379,7 @@ results.ave$NetworkPair <- stringr::str_c(results.ave$net1, '-', results.ave$net
 
 results.sigEdges = results.ave[fdr20.edges.SL,c(1, 22, 2:3, 7:9,13, 20:21)]
 
-results.sigEdges <- results.sigEdges[order(results.sigEdges$p.SL.fdr), ]
+results.sigEdges <- results.sigEdges[order(results.sigEdges$p.naive.fdr), ]
 
 names(results.sigEdges)[1] = "Edge"
 names(results.sigEdges)[2] = "Network Pair"
@@ -443,4 +443,4 @@ circos.clear()
 ```
 
 
-**Figure 5. The DRTMLE deconfounded group difference revealed more extensive differences than the naïve approach.** Z-statistics for autism spectrum disorder (ASD) versus typically developing (TD) using a) the na\"ive test and b) using DRTMLE. Connections are thresholded using a false discovery rate (FDR) of  0.20. Blue lines indicate ASD>TD (3 in na\"ive, 4 in DRTMLE). Red lines indicate ASD<TD (3 in na\"ive, 7 in DRTMLE). Brain regions contributing to each independent component are illustrated and components are grouped by functional assignment. Navy nodes: control. Blue violet: default mode. Purple: salience/ventral attention. Magenta: pontomedullary/cerebellar. Coral: somatomotor. Orange: visual. Yellow: dorsal attention.
+**Figure 5. The DRTMLE deconfounded group difference revealed more extensive differences than the naïve approach.** Z-statistics for autism spectrum disorder (ASD) versus typically developing (TD) using a) the na\"ive test and b) using DRTMLE. Connections are thresholded using a false discovery rate (FDR) of  0.20. Blue lines indicate ASD>TD (`r sum(results.ave$p.naive.fdr<.2 & results.ave$z.stat.diff.naive>0)` in naive, `r sum(results.ave$p.SL.fdr<.2 & results.ave$z.stat.diff.SL>0)` in DRTMLE). Red lines indicate ASD<TD (`r sum(results.ave$p.naive.fdr<.2 & results.ave$z.stat.diff.naive<0)` in naive,  `r sum(results.ave$p.SL.fdr<.2 & results.ave$z.stat.diff.SL<0)` in DRTMLE). Brain regions contributing to each independent component are illustrated and components are grouped by functional assignment. Navy nodes: control. Blue violet: default mode. Purple: salience/ventral attention. Magenta: pontomedullary/cerebellar. Coral: somatomotor. Orange: visual. Yellow: dorsal attention.
