@@ -19,6 +19,7 @@ library(circlize)
 library(png)
 #to remove background from .pngs
 library(colordistance)
+library(magick)
 ```
 
 #### Define Circle plot functions:
@@ -381,19 +382,13 @@ results.sigEdges = results.ave[fdr20.edges.SL,c(1, 22, 2:3, 7:9,13, 20:21)]
 
 results.sigEdges <- results.sigEdges[order(results.sigEdges$p.naive.fdr), ]
 
-names(results.sigEdges)[1] = "Edge"
-names(results.sigEdges)[2] = "Network Pair"
-names(results.sigEdges)[3] = "naive ASD mean"
-names(results.sigEdges)[4] = "naive TD mean"
-names(results.sigEdges)[5] = "naive ASD-TD Z"
-names(results.sigEdges)[6] = "DRTMLE ASD mean"
-names(results.sigEdges)[7] = "DRTMLE TD mean"
-names(results.sigEdges)[8] = "DRTMLE ASD-TD Z"
-#names(results.sigEdges)[9] = "naive FDR-adjusted p"
-#names(results.sigEdges)[10] = "DRTMLE FDR-adjusted p"
-
-
-knitr::kable(results.sigEdges, format="markdown")
+knitr::kable(results.sigEdges, format="markdown", 
+             col.names = c("Edge", "Network Pair", "naive ASD mean", "naive TD mean", 
+                           "naive ASD-TD Z",
+                           "DRTMLE ASD mean", "DRTMLE TD mean", 
+                           "DRTMLE ASD-TD Z",
+                           "naive FDR-adjusted p", 
+                           "DRTMLE FDR-adjusted p"))
 
 ```
 
@@ -401,10 +396,21 @@ DRTMLE indicates a significant deconfounded group difference for the first **`r 
 
 Mean functional connectivity group estimates further from zero reflect stronger functional connectivity regardless of sign; positive scores reflect positive partial correlations, or more integrated intrinsic activity between independent components (ICs). Negative scores reflect negative partial correlations, or more segregated intrinsic activity between ICs.
 
-#### Create latex version for paper
-```{r}
-tab <- knitr::kable(results.sigEdges, format="latex", linesep = '')
-print(tab, type="latex")
+#### Create version for paper
+```{r, results='hide'}
+#tab <- knitr::kable(results.sigEdges, format="latex", linesep = '')
+#print(tab, type="latex")
+
+knitr::kable(results.sigEdges, "latex", linesep = "", vline = "",
+             col.names = c("Edge", "Network Pair", "naive ASD mean", "naive TD mean", 
+                           "naive ASD-TD Z",
+                           "DRTMLE ASD mean", "DRTMLE TD mean", 
+                           "DRTMLE ASD-TD Z",
+                           "naive FDR-adjusted p", 
+                           "DRTMLE FDR-adjusted p")) %>%
+  #kableExtra::column_spec(9:10, width = "1 cm") %>% 
+  kableExtra::kable_styling(latex_options = c("scale_down")) %>% 
+  kableExtra::as_image(width = 7, file = "Application_Figures/tableS3.pdf")
 
 ```
 
