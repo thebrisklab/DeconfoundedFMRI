@@ -103,8 +103,8 @@ table(is.na(dat2[,startEdgeidx]) & dat2$KKI_criteria=='Pass')
 # No missing. Cool.
 
 # Motion variables:
-# MeanFramewiseDisplacement
-# MaxFramewiseDisplacement
+# MeanFramewiseDisplacement.KKI
+# MaxFramewiseDisplacement.KKI
 # FramesWithFDLessThanOrEqualTo250microns
 # Here, we control for sex and motion effects. We do not control for age, but 
 # age is included in the propensity and outcome models, resulting
