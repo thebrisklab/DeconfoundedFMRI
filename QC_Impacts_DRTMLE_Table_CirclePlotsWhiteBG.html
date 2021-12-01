@@ -243,7 +243,7 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   oDATA$NewOrder[oDATA$Group==&quot;Attn&quot;]=7
   oDATA$NewOrder[oDATA$Group==&quot;Control&quot;]=1
   oDATA$NewOrder[oDATA$Group==&quot;SalVenAtt&quot;]=3
-  oDATA$NewOrder[oDATA$Group==&quot;SC&quot;]=4
+  oDATA$NewOrder[oDATA$Group==&quot;CB&quot;]=4
   oDATA$NewOrder[oDATA$Group==&quot;Default&quot;]=2
   oDATA$NewOrder[oDATA$Group==&quot;SomMot&quot;]=5
   oDATA$NewOrder[oDATA$Group==&quot;Vis&quot;]=6
@@ -440,7 +440,7 @@ summary(tabfdr05,
 <thead>
 <tr class="header">
 <th align="left"></th>
-<th align="center">SC (N=1)</th>
+<th align="center">CB (N=1)</th>
 <th align="center">Vis (N=1)</th>
 <th align="center">Total (N=2)</th>
 </tr>
@@ -479,12 +479,12 @@ dir.create(&quot;./ic_pngs_noBG&quot;)</code></pre>
     )
   head(DATA)</code></pre>
 <pre><code>##             images names values
-## 1 ic_pngs/ic01.png    01     20
-## 2 ic_pngs/ic02.png    02     52
-## 3 ic_pngs/ic04.png    04     22
-## 4 ic_pngs/ic08.png    08     60
-## 5 ic_pngs/ic13.png    13     92
-## 6 ic_pngs/ic14.png    14     85</code></pre>
+## 1 ic_pngs/ic01.png    01     70
+## 2 ic_pngs/ic02.png    02     25
+## 3 ic_pngs/ic04.png    04     74
+## 4 ic_pngs/ic08.png    08     17
+## 5 ic_pngs/ic13.png    13      8
+## 6 ic_pngs/ic14.png    14     48</code></pre>
 <pre class="r"><code>for(iimg in seq(1:nrow(DATA))) {
  img_data &lt;- magick::image_read(DATA$images[iimg])
  new_img &lt;- magick::image_transparent(img_data, &#39;black&#39;)
@@ -536,7 +536,7 @@ summary(tabfdr2n,
 <tr class="header">
 <th align="left"></th>
 <th align="center">Attn (N=1)</th>
-<th align="center">SC (N=3)</th>
+<th align="center">CB (N=3)</th>
 <th align="center">SomMot (N=1)</th>
 <th align="center">Vis (N=1)</th>
 <th align="center">Total (N=6)</th>
@@ -590,8 +590,8 @@ summary(tabfdr2,
 <tr class="header">
 <th align="left"></th>
 <th align="center">Attn (N=2)</th>
+<th align="center">CB (N=3)</th>
 <th align="center">Default (N=2)</th>
-<th align="center">SC (N=3)</th>
 <th align="center">SomMot (N=2)</th>
 <th align="center">Vis (N=2)</th>
 <th align="center">Total (N=11)</th>
@@ -610,8 +610,8 @@ summary(tabfdr2,
 <tr class="even">
 <td align="left">   Attn</td>
 <td align="center">0 (0.0%)</td>
-<td align="center">0 (0.0%)</td>
 <td align="center">1 (33.3%)</td>
+<td align="center">0 (0.0%)</td>
 <td align="center">0 (0.0%)</td>
 <td align="center">0 (0.0%)</td>
 <td align="center">1 (9.1%)</td>
@@ -619,8 +619,8 @@ summary(tabfdr2,
 <tr class="odd">
 <td align="left">   Control</td>
 <td align="center">0 (0.0%)</td>
-<td align="center">2 (100.0%)</td>
 <td align="center">1 (33.3%)</td>
+<td align="center">2 (100.0%)</td>
 <td align="center">1 (50.0%)</td>
 <td align="center">1 (50.0%)</td>
 <td align="center">5 (45.5%)</td>
@@ -628,8 +628,8 @@ summary(tabfdr2,
 <tr class="even">
 <td align="left">   Default</td>
 <td align="center">2 (100.0%)</td>
-<td align="center">0 (0.0%)</td>
 <td align="center">1 (33.3%)</td>
+<td align="center">0 (0.0%)</td>
 <td align="center">1 (50.0%)</td>
 <td align="center">0 (0.0%)</td>
 <td align="center">4 (36.4%)</td>
@@ -710,7 +710,7 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 </tr>
 <tr class="even">
 <td align="left">14-19</td>
-<td align="left">SC-Attn</td>
+<td align="left">CB-Attn</td>
 <td align="right">0.069</td>
 <td align="right">0.078</td>
 <td align="right">-3.368</td>
@@ -746,7 +746,7 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 </tr>
 <tr class="odd">
 <td align="left">14-21</td>
-<td align="left">SC-Control</td>
+<td align="left">CB-Control</td>
 <td align="right">0.044</td>
 <td align="right">0.053</td>
 <td align="right">-2.871</td>
@@ -758,7 +758,7 @@ knitr::kable(results.sigEdges, format=&quot;markdown&quot;)</code></pre>
 </tr>
 <tr class="even">
 <td align="left">4-17</td>
-<td align="left">SC-Default</td>
+<td align="left">CB-Default</td>
 <td align="right">-0.067</td>
 <td align="right">-0.076</td>
 <td align="right">2.779</td>
@@ -843,11 +843,11 @@ print(tab, type=&quot;latex&quot;)</code></pre>
 ## Edge &amp; Network Pair &amp; naive ASD mean &amp; naive TD mean &amp; naive ASD-TD Z &amp; DRTMLE ASD mean &amp; DRTMLE TD mean &amp; DRTMLE ASD-TD Z &amp; p.naive.fdr &amp; p.SL.fdr\\
 ## \hline
 ## 2-27 &amp; Vis-Control &amp; -0.038 &amp; -0.024 &amp; -4.034 &amp; -0.038 &amp; -0.024 &amp; -4.20 &amp; 0.008 &amp; 0.004\\
-## 14-19 &amp; SC-Attn &amp; 0.069 &amp; 0.078 &amp; -3.368 &amp; 0.068 &amp; 0.078 &amp; -3.59 &amp; 0.058 &amp; 0.025\\
+## 14-19 &amp; CB-Attn &amp; 0.069 &amp; 0.078 &amp; -3.368 &amp; 0.068 &amp; 0.078 &amp; -3.59 &amp; 0.058 &amp; 0.025\\
 ## 19-25 &amp; Attn-Default &amp; -0.085 &amp; -0.094 &amp; 3.026 &amp; -0.086 &amp; -0.094 &amp; 2.55 &amp; 0.126 &amp; 0.183\\
 ## 13-26 &amp; SomMot-Default &amp; -0.031 &amp; -0.040 &amp; 2.799 &amp; -0.030 &amp; -0.039 &amp; 3.21 &amp; 0.139 &amp; 0.068\\
-## 14-21 &amp; SC-Control &amp; 0.044 &amp; 0.053 &amp; -2.871 &amp; 0.043 &amp; 0.053 &amp; -2.93 &amp; 0.139 &amp; 0.086\\
-## 4-17 &amp; SC-Default &amp; -0.067 &amp; -0.076 &amp; 2.779 &amp; -0.067 &amp; -0.076 &amp; 3.11 &amp; 0.139 &amp; 0.070\\
+## 14-21 &amp; CB-Control &amp; 0.044 &amp; 0.053 &amp; -2.871 &amp; 0.043 &amp; 0.053 &amp; -2.93 &amp; 0.139 &amp; 0.086\\
+## 4-17 &amp; CB-Default &amp; -0.067 &amp; -0.076 &amp; 2.779 &amp; -0.067 &amp; -0.076 &amp; 3.11 &amp; 0.139 &amp; 0.070\\
 ## 19-26 &amp; Attn-Default &amp; 0.036 &amp; 0.027 &amp; 2.535 &amp; 0.036 &amp; 0.028 &amp; 2.47 &amp; 0.228 &amp; 0.193\\
 ## 1-21 &amp; SomMot-Control &amp; 0.004 &amp; -0.003 &amp; 2.217 &amp; 0.006 &amp; -0.003 &amp; 3.05 &amp; 0.432 &amp; 0.070\\
 ## 17-24 &amp; Default-Control &amp; -0.003 &amp; 0.003 &amp; -2.069 &amp; -0.004 &amp; 0.003 &amp; -2.63 &amp; 0.432 &amp; 0.183\\

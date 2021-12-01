@@ -83,7 +83,7 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   oDATA$NewOrder[oDATA$Group=="Attn"]=7
   oDATA$NewOrder[oDATA$Group=="Control"]=1
   oDATA$NewOrder[oDATA$Group=="SalVenAtt"]=3
-  oDATA$NewOrder[oDATA$Group=="SC"]=4
+  oDATA$NewOrder[oDATA$Group=="CB"]=4
   oDATA$NewOrder[oDATA$Group=="Default"]=2
   oDATA$NewOrder[oDATA$Group=="SomMot"]=5
   oDATA$NewOrder[oDATA$Group=="Vis"]=6
