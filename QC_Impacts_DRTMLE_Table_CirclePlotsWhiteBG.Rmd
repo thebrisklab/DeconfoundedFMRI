@@ -19,6 +19,7 @@ library(circlize)
 library(png)
 #to remove background from .pngs
 library(colordistance)
+library(magick)
 ```
 
 #### Define Circle plot functions:
@@ -83,7 +84,7 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   oDATA$NewOrder[oDATA$Group=="Attn"]=7
   oDATA$NewOrder[oDATA$Group=="Control"]=1
   oDATA$NewOrder[oDATA$Group=="SalVenAtt"]=3
-  oDATA$NewOrder[oDATA$Group=="SC"]=4
+  oDATA$NewOrder[oDATA$Group=="CB"]=4
   oDATA$NewOrder[oDATA$Group=="Default"]=2
   oDATA$NewOrder[oDATA$Group=="SomMot"]=5
   oDATA$NewOrder[oDATA$Group=="Vis"]=6
@@ -114,14 +115,14 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
   # Create the weighted adjacency matrix:
   
   # Construct the "from" edge:
-  ic.from =   substr(data$EdgeName,5,6)
-  ic.from = ifelse(substr(ic.from,2,2)=='.',paste0('0',substr(ic.from,1,1)),ic.from)
+  ic.from =   substr(data$EdgeName,1,2)
+  ic.from = ifelse(substr(ic.from,2,2)=='-',paste0('0',substr(ic.from,1,1)),ic.from)
   # visually check it looks good:
   cbind(data$EdgeName,ic.from)
   
   # Construct the "to" edge
   ic.to = substr(data$EdgeName,nchar(data$EdgeName)-1,nchar(data$EdgeName))
-  ic.to = ifelse(substr(ic.to,1,1)=='c',paste0('0',substr(ic.to,2,2)),ic.to)
+  ic.to = ifelse(substr(ic.to,1,1)=='-',paste0('0',substr(ic.to,2,2)),ic.to)
   # visually check it looks good:
   cbind(data$EdgeName,ic.to)
   
@@ -189,7 +190,7 @@ myChordDiagram = function(data,varname,alpha=0.20,alphaname,title) {
 ```{r}
 results.all=NULL
 for (i in 1:200) {
-  load(paste0('../Results/Results_19November2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
+  load(paste0('../Results/Results_20November2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
   results.all = rbind(results.all,results.df)
 }
 rm(results.df)
@@ -197,7 +198,7 @@ rm(results.df)
 # second set of seeds:
 results.all2=NULL
 for (i in 201:400) {
-  load(paste0('../Results/Results_19November2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
+  load(paste0('../Results/Results_20November2021/ic30_pc85_glm_gam_drtmle_seed',i,'.RData'))
   results.all2 = rbind(results.all2,results.df)
 }
 rm(results.df)
@@ -223,15 +224,50 @@ results.ave = rbind(results.all,results.all2) %>%
             z.stat.TD.SL=mean(z.stat.TD.SL), 
             z.stat.diff.SL=round(mean(z.stat.diff.SL), digits = 2))
 
-results.ave$p.naive = 2*(1-pnorm(abs(results.ave$z.stat.diff.naive)))
-results.ave$p.naive.fdr = round(p.adjust(results.ave$p.naive,method='BH'), digits = 3)
-results.ave$p.SL = 2*(1-pnorm(abs(results.ave$z.stat.diff.SL)))
-results.ave$p.SL.fdr = round(p.adjust(results.ave$p.SL,method='BH'), digits = 3)
+```
 
-results.ave$td.p.naive = 2*(1-pnorm(abs(results.ave$z.stat.TD.naive)))
-results.ave$td.p.naive.fdr = round(p.adjust(results.ave$td.p.naive,method='BH'), digits = 3)
-results.ave$td.p.SL = 2*(1-pnorm(abs(results.ave$z.stat.TD.SL)))
-results.ave$td.p.SL.fdr = round(p.adjust(results.ave$td.p.SL,method='BH'), digits = 3)
+#### Add network names
+```{r}
+icInfo <- read_excel("componentLabels_pca85_ica30.xlsx")
+
+results.ave <- results.ave %>% 
+  mutate(EdgeName = gsub("r.|ic", "", EdgeName)) %>% 
+  mutate(EdgeName = gsub("[.]", "-", EdgeName)) %>% 
+  mutate(ic.from = gsub("[-]", "", substr(EdgeName, 1, 2))) %>% 
+  mutate(ic.to = gsub("[-]", "", substr(EdgeName, nchar(EdgeName)-1,nchar(EdgeName)))) %>% 
+  mutate(net1 = icInfo$cognitive.domain[as.numeric(ic.from)]) %>% 
+  mutate(net2 = icInfo$cognitive.domain[as.numeric(ic.to)])
+
+```
+
+#### Calculate uncorrected p values for both methods and plot histograms
+```{r}
+#calculate p values
+results.ave$p.naive = 2*(1-pnorm(abs(results.ave$z.stat.diff.naive)))
+results.ave$p.SL = 2*(1-pnorm(abs(results.ave$z.stat.diff.SL)))
+
+pVariables = c("EdgeName", "p.naive", "p.SL")
+
+pvalues <- reshape2::melt(results.ave[, pVariables],
+                         id.vars="EdgeName",
+                         variable.name = "method",
+                         value.name = "p")
+
+method.labs <- c("naive", "DRTMLE")
+names(method.labs) <- c("p.naive", "p.SL")
+
+ggplot(pvalues, aes(x=p))+
+  geom_histogram(position = "identity", alpha=0.5, inherit.aes=TRUE, binwidth = .05)+
+  scale_x_continuous(expand = c(0, 0))+  
+  scale_y_continuous(expand = c(0, 0))+ 
+  facet_grid(method~., labeller = labeller(method = method.labs))
+
+```
+
+#### FDR-adjusted p values
+```{r}
+results.ave$p.naive.fdr = round(p.adjust(results.ave$p.naive,method='BH'), digits = 3)
+results.ave$p.SL.fdr = round(p.adjust(results.ave$p.SL,method='BH'), digits = 3)
 
 ```
 
@@ -246,17 +282,14 @@ all(fdr05.edges.naive %in% fdr05.edges.SL)
 
 All edges indicated by naive approach are also indicated by DRTMLE at the FDR=0.05 level
 
-
-
-#### Determine edges showing a significant group difference FDR=.20
-```{r}
-fdr20.edges.SL = which(results.ave$p.SL.fdr<.20) 
-fdr20.edges.naive = which(results.ave$p.naive.fdr<.20) 
-
-all(fdr20.edges.naive %in% fdr20.edges.SL)
-
+#### Summary of network pairs showing a significant group difference using DRTMLE, FDR=.05
+```{r, results='asis'}
+tabfdr05<- tableby(net1 ~ net2,
+                 data=filter(results.ave , p.SL.fdr<.05))
+summary(tabfdr05,  
+        title='Network pairs showing a group difference using DRTMLE FDR=.05',digits=1, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=TRUE, test=FALSE)
 ```
-All edges indicated by naive approach are also indicated by DRTMLE at the FDR=0.2 level
+
 
 #### Remove background from .pngs of IC maps
 ```{r}
@@ -314,36 +347,70 @@ myChordDiagram(data=results.ave,varname='z.stat.diff.SL',alpha=0.05,alphaname='p
 circos.clear()
 ```
 
+#### Determine edges showing a significant group difference FDR=.20
+```{r}
+fdr20.edges.SL = which(results.ave$p.SL.fdr<.20) 
+fdr20.edges.naive = which(results.ave$p.naive.fdr<.20) 
+
+all(fdr20.edges.naive %in% fdr20.edges.SL)
+
+```
+All edges indicated by naive approach are also indicated by DRTMLE at the FDR=0.2 level
+
+#### Summary of network pairs showing a significant group difference using the naive approach, FDR=.2
+```{r, results='asis'}
+tabfdr2n<- tableby(net1 ~ net2,
+                 data=filter(results.ave , p.naive.fdr<.2))
+summary(tabfdr2n,  
+        title='Network pairs showing a group difference using the naive approach, FDR=.2',digits=1, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=TRUE, test=FALSE)
+```
+
+#### Summary of network pairs showing a significant group difference using DRTMLE, FDR=.2
+```{r, results='asis'}
+tabfdr2<- tableby(net1 ~ net2,
+                 data=filter(results.ave , p.SL.fdr<.2))
+summary(tabfdr2,  
+        title='Network pairs showing a group difference using DRTMLE, FDR=.2',digits=1, digits.p=4,digits.pct=1, numeric.simplify=TRUE, total=TRUE, test=FALSE)
+```
+
 #### Create table displaying group Z-statistics from DRTMLE for edges showing a group difference at FDR=.20
 ```{r, results="asis"}
 # group means for edges showing a group difference using DRTMLE:
-results.sigEdges = results.ave[fdr20.edges.SL,c(1,2:3, 7:9,13,15, 17)]
+results.ave$NetworkPair <- stringr::str_c(results.ave$net1, '-', results.ave$net2)
 
-results.sigEdges <-   results.sigEdges[order(results.sigEdges$p.SL.fdr), ]
+results.sigEdges = results.ave[fdr20.edges.SL,c(1, 22, 2:3, 7:9,13, 20:21)]
 
-names(results.sigEdges)[1] = "Edge"
-names(results.sigEdges)[2] = "naive ASD mean"
-names(results.sigEdges)[3] = "naive TD mean"
-names(results.sigEdges)[4] = "naive ASD-TD Z"
-names(results.sigEdges)[5] = "DRTMLE ASD mean"
-names(results.sigEdges)[6] = "DRTMLE TD mean"
-names(results.sigEdges)[7] = "DRTMLE ASD-TD Z"
-names(results.sigEdges)[8] = "naive FDR-adjusted p"
-names(results.sigEdges)[9] = "DRTMLE FDR-adjusted p"
+results.sigEdges <- results.sigEdges[order(results.sigEdges$p.naive.fdr), ]
 
-
-knitr::kable(results.sigEdges, format="markdown")
+knitr::kable(results.sigEdges, format="markdown", 
+             col.names = c("Edge", "Network Pair", "naive ASD mean", "naive TD mean", 
+                           "naive ASD-TD Z",
+                           "DRTMLE ASD mean", "DRTMLE TD mean", 
+                           "DRTMLE ASD-TD Z",
+                           "naive FDR-adjusted p", 
+                           "DRTMLE FDR-adjusted p"))
 
 ```
 
-DRTMLE indicates a significant deconfounded group difference for the first four edges at the FDR=.05 level and an additional seven edges at the FDR=.20 level.
+DRTMLE indicates a significant deconfounded group difference for the first **`r sum(results.sigEdges$p.SL.fdr<.05)`** edges at the FDR=.05 level and an additional **`r sum(results.sigEdges$p.SL.fdr<.2 & results.sigEdges$p.SL.fdr>.05)`** edges at the FDR=.20 level.
 
 Mean functional connectivity group estimates further from zero reflect stronger functional connectivity regardless of sign; positive scores reflect positive partial correlations, or more integrated intrinsic activity between independent components (ICs). Negative scores reflect negative partial correlations, or more segregated intrinsic activity between ICs.
 
-#### Create latex version for paper
-```{r}
-tab <- knitr::kable(results.sigEdges, format="latex", linesep = '')
-print(tab, type="latex")
+#### Create version for paper
+```{r, results='hide'}
+#tab <- knitr::kable(results.sigEdges, format="latex", linesep = '')
+#print(tab, type="latex")
+
+knitr::kable(results.sigEdges, "latex", linesep = "", vline = "",
+             col.names = c("Edge", "Network Pair", "naive ASD mean", "naive TD mean", 
+                           "naive ASD-TD Z",
+                           "DRTMLE ASD mean", "DRTMLE TD mean", 
+                           "DRTMLE ASD-TD Z",
+                           "naive FDR-adjusted p", 
+                           "DRTMLE FDR-adjusted p")) %>%
+  #kableExtra::column_spec(9:10, width = "1 cm") %>% 
+  kableExtra::kable_styling(latex_options = c("scale_down")) %>% 
+  kableExtra::as_image(width = 7, file = "Application_Figures/tableS3.pdf")
 
 ```
 
@@ -382,4 +449,4 @@ circos.clear()
 ```
 
 
-**Figure 5. The DRTMLE deconfounded group difference revealed more extensive differences than the naïve approach.** Z-statistics for autism spectrum disorder (ASD) versus typically developing (TD) using a) the na\"ive test and b) using DRTMLE. Connections are thresholded using a false discovery rate (FDR) of  0.20. Blue lines indicate ASD>TD (3 in na\"ive, 4 in DRTMLE). Red lines indicate ASD<TD (3 in na\"ive, 7 in DRTMLE). Brain regions contributing to each independent component are illustrated and components are grouped by functional assignment. Navy nodes: control. Blue violet: default mode. Purple: salience/ventral attention. Magenta: pontomedullary/cerebellar. Coral: somatomotor. Orange: visual. Yellow: dorsal attention.
+**Figure 5. The DRTMLE deconfounded group difference revealed more extensive differences than the naïve approach.** Z-statistics for autism spectrum disorder (ASD) versus typically developing (TD) using a) the na\"ive test and b) using DRTMLE. Connections are thresholded using a false discovery rate (FDR) of  0.20. Blue lines indicate ASD>TD (`r sum(results.ave$p.naive.fdr<.2 & results.ave$z.stat.diff.naive>0)` in naive, `r sum(results.ave$p.SL.fdr<.2 & results.ave$z.stat.diff.SL>0)` in DRTMLE). Red lines indicate ASD<TD (`r sum(results.ave$p.naive.fdr<.2 & results.ave$z.stat.diff.naive<0)` in naive,  `r sum(results.ave$p.SL.fdr<.2 & results.ave$z.stat.diff.SL<0)` in DRTMLE). Brain regions contributing to each independent component are illustrated and components are grouped by functional assignment. Navy nodes: control. Blue violet: default mode. Purple: salience/ventral attention. Magenta: pontomedullary/cerebellar. Coral: somatomotor. Orange: visual. Yellow: dorsal attention.

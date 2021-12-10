@@ -215,8 +215,7 @@ mean_fconn_asd.SL <- drtmle(Y = Y.sample.QC[A.sample==1],
                             gn = list(gn.est$SL.predict[A.sample==1]), # pass in fitted propensities
                             SL_Qr = "SL.npreg", # uses non-parametric regression in the drtmle step
                             SL_gr = "SL.npreg",
-                            maxIter = 1,
-                            stratify=TRUE #ensures that unusable functional connectivity values are not used at all in model fitting
+                            maxIter = 1
                             )
       
 # TD:
@@ -228,8 +227,7 @@ mean_fconn_td.SL <- drtmle(Y = Y.sample.QC[A.sample==0],
                            gn = list(gn.est$SL.predict[A.sample==0]), 
                            SL_Qr = "SL.npreg",
                            SL_gr = "SL.npreg",
-                           maxIter = 1, 
-                           stratify=TRUE
+                           maxIter = 1
                             )
 
   
