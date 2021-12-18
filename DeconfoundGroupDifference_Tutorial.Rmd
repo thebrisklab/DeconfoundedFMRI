@@ -1,7 +1,5 @@
 ---
-title: "DeconfoundedGroupDifference_Tutorial"
-author: "Benjamin Risk"
-date: "11/21/2021"
+title: "Deconfounded Group Difference Tutorial"
 output: html_document
 ---
 
@@ -9,7 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Set up random seed and multicore
+### Set up random seed and multicore
 ```{r}
 options(mc.cores=8)
 getOption("mc.cores")
@@ -66,7 +64,7 @@ mean(Delta[A==1])
 mean(Delta[A==0])
 ```
 
-The difference between the distribution of $W_c$ in the full sample and the distribution of $W_.sample_c$ in the usable sample is the sampling bias caused by motion QC. 
+The difference between the distribution of $W_c$ in the full sample and the distribution of $W_{usable,c}$ in the usable sample is the sampling bias caused by motion QC. Here, we have kept things simple with sampling bias in the ASD group only. 
 
 
 ```{r, fig.width = 8}
@@ -108,7 +106,7 @@ Next, we calculate the "true" mean functional connectivity (fconn) within the AS
 
 The "true" population group difference in functional connectivity is then ASD.true - TD.true = **`r toString(round(ASD.true-TD.true, digits = 4))`**.
 
-Next, we calculate the naive means in the population sample, $E[Y|A=1,\Delta=1]=E[E[Y|A=1,\Delta=1,W]|A=1,\Delta]$, resulting from confounding with usability:
+Next, we calculate the naive means in the population sample, $E[Y|A=1,\Delta=1]=E[E[Y|A=1,\Delta=1,W]|A=1,\Delta=1]$, resulting from confounding with usability:
 
 ```{r}
 (ASD.naive = mean(Y[A==1 & Delta==1]))
