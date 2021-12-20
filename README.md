@@ -14,3 +14,7 @@ characterizing in autism?"
 
 6. QC_Impacts_DRTMLE_Table_CirclePlotsWhiteBG.Rmd - code to produce Figure 7 "The DRTMLE deconfounded group difference revealed more extensive differences
 than the na¨ıve approach", Figure S2, Table S3. 
+
+![graphical overview](https://github.com/mbnebel/DeconfoundedFMRI/blob/thebrisklab-main/graphicalOverview.png)
+
+
