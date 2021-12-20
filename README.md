@@ -2,6 +2,12 @@
 Code to reproduce all analyses, tables, and figures in "Accounting for motion in fMRI: What part of the spectrum are we
 characterizing in autism?"
 
+##Our goals are two-fold: 
+1. to document the biases introduced by common motion exclusion practices in functional connectivity research
+
+2. to introduce a framework to address these biases by treating excluded scans as a missing data problem.
+
+##Main functions:
 1. covariate_figures.Rmd - code used to run all analyses in sections 2.1.3 "Study Sample" to 2.2.4 "Functional connectivity as a function of phenotypes"
 
 2. DeconfoundGroupDifference_Tutorial.Rmd - Tutorial described in section 2.3.1 " Theory: Deconfounded group difference" to illustrate the improvement in functional connectivity from DRTMLE compared to the naive approach from a single simulated dataset. Produces Figure 2.
