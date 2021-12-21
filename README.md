@@ -17,7 +17,7 @@ characterizing in autism?"
     - Table S3: Summary of Mann-Whitney U tests comparing included and excluded participants using the strict motion QC and stratified by primary diagnosis.
     - Fig 6: Some covariates related to rs-fMRI exclusion probability are also related to functional connectivity.
 
-2. DeconfoundGroupDifference_Tutorial.Rmd - Tutorial described in *section 2.3.1 Theory: Deconfounded group difference*, which simulates a variable $W_c$ that drives the confounding between data usability and functional connectivity and then shows how DRTMLE can adjust for this confounding. Output:
+2. DeconfoundGroupDifference_Tutorial.Rmd - Tutorial described in *section 2.3.1 Theory: Deconfounded group difference*, which simulates a variable W<sub>c</sub> that drives the confounding between data usability (Δ) and functional connectivity (Y) and then shows how DRTMLE can adjust for this confounding. Output:
     - Fig. 2: Illustration of the improvement in functional connectivity from DRTMLE compared to the naive approach from a single simulated dataset.
 
 3. QC_Impacts_Analysis_singleseed_cb.R - R code to run the entire DRTMLE procedure for a single seed as described in *section 2.3.2 Application: Deconfounded group difference in the KKI Dataset*. This includes motor overflow imputation, estimation of the propensity model, estimation of 153 outcome models, and application of DRTMLE to 153 functional connectivity edges.
