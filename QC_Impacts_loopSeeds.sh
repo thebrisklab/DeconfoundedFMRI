@@ -1,15 +1,16 @@
 #!/bin/bash
 
-for seedID in $(seq 10)
+cd ~/risk_share/QualityControlImpacts/ProgramsBrisk
+
+for seedID in $(seq 1 400)
 do
 
-cd ~/risk_share/QualityControlImpacts/ProgramsBrisk
-sed -e s:seedID:"${seedID}":g <~/risk_share/QualityControlImpacts/Programs/QC_Impacts_Analysis_singleseed.R >QC_Impacts_Analysis_seed${seedID}.R
+sed -e s:seedID:"${seedID}":g <~/risk_share/QualityControlImpacts/ProgramsBrisk/QC_Impacts_Analysis_singleseed_cb.R >QC_Impacts_Analysis_seed${seedID}.R
 
-sed -e s:seedID:"${seedID}":g <~/risk_share/QualityControlImpacts/Programs/QC_Impacts_Analysis_singleseed.sh >QC_Impacts_Analysis_seed${seedID}.sh
+sed -e s:seedID:"${seedID}":g <~/risk_share/QualityControlImpacts/ProgramsBrisk/QC_Impacts_Analysis_singleseed.sh >QC_Impacts_Analysis_seed${seedID}.sh
 
 
-qsub  -cwd -N seed${subjectID} QC_Impacts_Analysis_seed${subjectID}.sh
+qsub  -cwd -q R4.q -N seed${seedID} QC_Impacts_Analysis_seed${seedID}.sh
 
 done
 
