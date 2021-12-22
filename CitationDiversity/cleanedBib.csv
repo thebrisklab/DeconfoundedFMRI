@@ -1,0 +1,109 @@
+Article,FA,LA,Title,SelfCite,CitationKey
+1,Yoav,Yosef,Controlling the false discovery rate: a practical and powerful approach to multiple testing,N,benjamini1995controlling
+2,Elena,Vince,A baseline for the multivariate comparison of resting-state networks,N,Allen2011ANetworks
+3,Chao,Michael,A comprehensive assessment of regional variation in the impact of head micromovements on functional connectomics,N,Yan2013AConnectomics
+4,Jonathan,Steven,A critical event-related appraisal of denoising in resting-state fMRI studies,N,Power2020AStudies
+5,Gen,Irina,A general framework for association analysis of heterogeneous data,N,Li2018AData
+6,Daniel,Donovan,A Generalization of Sampling Without Replacement from a Finite Universe,N,Horvitz1952AUniverse
+7,Vince,James,A method for making group inferences from functional MRI data using independent component analysis,N,Calhoun2001AAnalysis
+8,James,James,A new approach to causal inference in mortality studies with a sustained exposure period-application to control of the healthy worker survivor effect,N,Robins1986AEffect
+9,Jonathan,Jonathan,A simple but useful way to assess fMRI scan qualities,N,Power2017AQualities
+10,Adriana,Michael,Aberrant striatal functional connectivity in children with autism,N,DiMartino2011AberrantAutism
+11,George,Robert,ADHD Rating Scale—IV: Checklists norms and clinical interpretation.,N,DuPaul1998ADHDInterpretation.
+12,Thomas,Dimitri,Agito ergo sum: Correlates of spatio-temporal motion characteristics during fMRI,N,Bolton2020AgitoFMRI
+13,Jeffrey,Mirella,Altered functional and structural brain network organization in autism,N,Rudie2013AlteredAutism
+14,Linden,Alex,An evaluation of the efficacy reliability and sensitivity of motion correction strategies for resting-state functional MRI,N,Parkes2018AnMRI
+15,Theodore,Daniel,An improved framework for confound regression and filtering for control of motion artifact in the preprocessing of resting-state functional connectivity data,N,Satterthwaite2013AnData
+16,Catherine,Rebecca,Annual research review: Re-thinking the classification of autism spectrum disorders,N,Lord2012AnnualDisorders
+17,John,Richard,Autistic traits in the general population: A twin study,N,Constantino2003AutisticStudy
+18,Matteo,Jesper,Automated quality control for within and between studies diffusion MRI data using a non-parametric framework for movement and distortion correction,N,Bastiani2019AutomatedCorrection
+19,Eric,Joshua,Batch Effects are Causal Effects: Applications in Human Connectomics,N,Bridgeford2021BatchConnectomics
+20,Deanna,Nico,Behavioral interventions for reducing head motion during MRI scans in children,N,Greene2018BehavioralChildren
+21,Rastko,Theodore,Benchmarking of participant-level confound regression strategies for the control of motion artifact in studies of functional connectivity,N,Ciric2017BenchmarkingConnectivity
+22,Kaustubh,Vinod,Brain Hyperconnectivity in Children with Autism and its Links to Social Deficits,N,Supekar2013BrainDeficits
+23,Miguel,James,Causal Inference: What If,N,Hernan2020CausalIf
+24,Janine,Eugene,Challenges and future directions for representations of functional brain organization,N,Bijsterbosch2020ChallengesOrganization
+25,Laura,Jessica,Children's head motion during fMRI tasks is heritable and stable over time,N,Engelhardt2017ChildrensTime
+26,Zuguang,Benedikt,circlize implements and enhances circular visualization in R,N,Gu2014CirclizeR
+27,Athanasia,Athanasia,Circular Plots in R and Adding Images [blog post],N,Mowinckel2018CircularPost
+28,Erik,Vince,Comparison of multi-subject ICA methods for analysis of fMRI data,N,Erhardt2011ComparisonData
+29,Tyler,Tyler,Concerning the consistency assumption in causal inference,N,VanderWeele2009ConcerningInference
+30,Sander,Judea,Confounding and collapsibility in causal inference,N,Greenland1999ConfoundingInference
+31,Frank,Elien,Connectivity between the cerebrum and cerebellum during social and non-social sequencing using dynamic causal modelling,N,VanOverwalle2020ConnectivityModelling
+32,Keith,Keith,Conners 3 ,N,Conners2008Conners3
+33,Keith,Keith,Conners Rating Scales-Revised,N,Conners1999ConnersScales-Revised
+34,Rina,Emmanuel,Controlling the false discovery rate via knockoffs,N,Barber2015ControllingKnockoffs
+35,Kelly,Mark,Covariate adjustment in randomized trials with binary outcomes: Targeted maximum likelihood estimation,N,Moore2009CovariateEstimation
+36,Joshua,Abraham,Data quality influences observed links between functional connectivity and behavior,N,Siegel2017DataBehavior
+37,Michael,Karen,Default mode-visual network hypoconnectivity in an autism subtype with pronounced social visual engagement difficulties,N,Lombardo2019DefaultDifficulties
+38,Maya,Mark,Diagnosing and responding to violations in the positivity assumption:,N,Petersen2010DiagnosingAssumption:
+39,Wendy,Wendy,Diagnostic Interview for Children and Adolescents (DICA),N,Reich2000DiagnosticDICA
+40,Heejung,James,Doubly robust estimation in missing data and causal inference models,N,Bang2005DoublyModels
+41,David,Peter,Doubly robust nonparametric inference on the average treatment effect,N,Benkeser2017DoublyEffect
+42,James,Lue,Estimation of Regression Coefficients When Some Regressors are not Always Observed,N,Robins2012EstimationObserved
+43,Ashley,Bradley,Evaluating the prediction of brain maturity from functional connectivity after motion artifact denoising,N,Nielsen2019EvaluatingDenoising
+44,Arun,Danielle,Evaluating the sensitivity of functional connectivity measures to motion artifact in resting-state fMRI data,N,Mahadevan2021EvaluatingData
+45,Raimon,Christian,Evaluation of ICA-AROMA and alternative strategies for motion artifact removal in resting state fMRI,N,Pruim2015EvaluationFMRI
+46,Daniel,Eric,Failing to deactivate: Resting functional abnormalities in autism,N,Kennedy2006FailingAutism
+47,August,August,Four factor index of social status.,N,Hollingshead1975FourStatus.
+48,Bharat,James,Functional connectivity in the motor cortex of resting human brain using echo‐planar MRI,N,Biswal1995FunctionalMRI
+49,Simon,Simon,Generalized additive models: an introduction with R,N,Wood2017GeneralizedR
+50,Michelle,Mara,Genetic and environmental influences on MRI scan quantity and quality,N,Achterberg2019GeneticQuality
+51,Russell,Thomas,Handbook of functional MRI data analysis,N,Poldrack2011HandbookAnalysis
+52,Scott,Nico,Identifying reproducible individual differences in childhood functional brain networks: An ABCD study,N,Marek2019IdentifyingStudy
+53,Theodore,Raquel,Impact of in-scanner head motion on multiple measures of functional connectivity: Relevance for studies of neurodevelopment in youth,N,Satterthwaite2012ImpactYouth
+54,Yong,Ed,Impaired Long Distance Functional Connectivity and Weighted Network Architecture in Alzheimer's Disease,N,Liu2014ImpairedDisease
+55,Jonathan,Kathleen,Implementation of G-Computation on a Simulated Data Set: Demonstration of a Causal Inference Technique,N,Snowden2011ImplementationTechnique
+56,Mark,Stephen,Improved Optimization for the Robust and Accurate Linear Registration and Motion Correction of Brain Images,N,Jenkinson2002ImprovedImages
+57,David,Mark,Improved Small-Sample Estimation of Nonlinear Cross-Validated Prediction Metrics,N,Benkeser2019ImprovedMetrics
+58,Xiang,Jia,Individual differences in impulsivity predict head motion during magnetic resonance imaging,N,Kong2014IndividualImaging
+59,Donald,Donald,Inference and missing data,N,Rubin1976InferenceData
+60,Elizabeth,Susan,Intrinsic functional network organization in high-functioning adolescents with autism spectrum disorder,N,Redcay2013IntrinsicDisorder
+61,Michael,Ralph,Largely typical patterns of resting-state functional connectivity in high-functioning adults with autism,N,Tyszka2014LargelyAutism
+62,Dina,Lucina,Local brain connectivity across development in autism spectrum disorder: A cross-sectional investigation,N,Dajani2016LocalInvestigation
+63,Christopher,Ralph,Local functional overconnectivity in posterior brain regions is associated with symptom severity in autism spectrum disorders,N,Keown2013LocalDisorders
+64,Hidemasa,Osamu,Longitudinal stability of resting-state networks in normal aging mild cognitive impairment and Alzheimer's disease,N,Takao2021LongitudinalDisease
+65,Elizabeth,Elizabeth,Matching methods for causal inference: A review and a look forward,N,Stuart2010MatchingForward
+66,Anthony,Wesley,Meaningful associations in the adolescent brain cognitive development study,N,Dick2021MeaningfulStudy
+67,Jonathan,Steven,Methods to detect characterize and remove motion artifact in resting state fMRI,N,Power2014MethodsFMRI
+68,Jakob,Ulrich,Motion artifacts in standard clinical setting obscure disease-specific differences in quantitative susceptibility mapping,N,Meineke2018MotionMapping
+69,Tom,Terrence,Motion correction and the use of motion covariates in multiple-subject fMRI analysis,N,Johnstone2006MotionAnalysis
+70,Ling,Hesheng,Neurobiological basis of head motion in brain imaging,N,Zeng2014NeurobiologicalImaging
+71,Stewart,Martha,Overflow movements predict impaired response inhibition in children with ADHD,N,Mostofsky2003OverflowADHD
+72,Anderson,Thomas,Permutation inference for the general linear model,N,Winkler2014PermutationModel
+73,Ben,Kevin,Perspective: Brain scans need a rethink,N,Deen2012Perspective:Rethink
+74,Lisa,Lisa,Plot Comparison [blog post],N,DeBruine2018PlotPost
+75,Anish,Adriana,Predicting multiscan MRI outcomes in children with neurodevelopmental conditions following MRI simulator training,N,Simhal2021PredictingTraining
+76,Matthew,Mary,Prevalence and Characteristics of Autism Spectrum Disorder Among Children Aged 8 Years — Autism and Developmental Disabilities Monitoring Network 11 Sites United States 2018,N,Maenner2021Prevalence2018
+77,Emily,Gillian,Psychiatric disorders in children with autism spectrum disorders: Prevalence comorbidity and associated factors in a population-derived sample,N,Simonoff2008PsychiatricSample
+78,Jonathan,Steven,Recent progress and outstanding issues in motion correction in resting state fMRI,N,Power2015RecentFMRI
+79,Naying,Fuhua,Region-specific disturbed iron distribution in early idiopathic Parkinson's disease measured by quantitative susceptibility mapping,N,He2015Region-specificMapping
+80,Catherine,Julie,Reprint of: Minimizing noise in pediatric task-based functional MRI; Adolescents with developmental disabilities and typical development,N,Fassbender2017ReprintDevelopment
+81,Martha,Martha,Revised Neurological Examination for Subtle Signs,N,Denckla1985RevisedSigns
+82,Lucina,Vinod,Salience network-based classification and prediction of symptom severity in children with autism,N,Uddin2013SalienceAutism
+83,Kaja,Katie,Sample composition alters associations between age and brain structure,N,Lewinn2017SampleStructure
+84,Joan,Neil,Schedule for affective disorders and schizophrenia for school-age children-present and lifetime version (K-SADS-PL 2013 DSM-5),N,Kaufman2013ScheduleDSM-5
+85,HaoMing,Avram,Shifting gradients of macroscale cortical organization mark the transition from childhood to adolescence,N,Dong2021ShiftingAdolescence
+86,John,Christian,Social Responsiveness Scale Second Edition (SRS-2): Manual,N,Constantino2012SocialManual
+87,Tyler,Rasmus,Sources of group differences in functional connectivity: An investigation applied to autism spectrum disorder,N,Jones2010SourcesDisorder
+88,Jonathan,Steven,Spurious but systematic correlations in functional connectivity MRI networks arise from subject motion,N,Power2012SpuriousMotion
+89,Vanessa,Catherine,Standardizing ADOS domain scores: Separating severity of social affect and restricted and repetitive behaviors,N,Hus2014StandardizingBehaviors
+90,Mark,Alan,Super learner,N,vanderLaan2007SuperLearner
+91,Eric,Mark,SuperLearner: Super Learner Prediction,N,Polley2019SuperLearner:Prediction
+92,Mark,Sherri,Targeted Learning: Causal Inference for Observational and Experimental Data,N,vanderLaan2011TargetedData
+93,Megan,Sherri,Targeted maximum likelihood estimation for causal inference in observational studies,N,Schuler2017TargetedStudies
+94,Mark,Daniel,Targeted maximum likelihood learning,N,vanderLaan2006TargetedLearning
+95,Betty,Anders,The Adolescent Brain Cognitive Development (ABCD) study: Imaging acquisition across 21 sites,N,Casey2018TheSites
+96,Catherine,Michael,The Autism Diagnostic Observation Schedule-Generic: A standard measure of social and communication deficits associated with the spectrum of autism,N,Lord2000TheAutism
+97,Sarah,Daniel,The cerebellum is involved in predicting the sensory consequences of action,N,Blakemore2001TheAction
+98,Aarthi,Vinod,The Default Mode Network in Autism,N,Padmanabhan2017TheAutism
+99,Roma,Joshua,The Disrupted Connectivity Hypothesis of Autism Spectrum Disorders: Time for the Next Phase in Research,N,Vasa2016TheResearch
+100,Evelyn,Todd,The functional brain organization of an individual allows prediction of measures of social abilities transdiagnostically in autism and attention-deficit/hyperactivity disorder,N,Lake2019TheDisorder
+101,David,Raquel,The impact of quality assurance assessment on diffusion tensor imaging outcomes in a large-scale population-based cohort,N,Roalf2016TheCohort
+102,Koene,Randy,The influence of head motion on intrinsic functional connectivity MRI,N,vanDijk2012TheMRI
+103,Randy,Thomas,The organization of the human cerebellum estimated by intrinsic functional connectivity,N,Buckner2011TheConnectivity
+104,Lucina,Nathan,Towards a Universal Taxonomy of Macro-scale Functional Human Brain Networks,N,Uddin2019TowardsNetworks
+105,Scott,Nico,Towards reproducible brain-wide association studies,N,Marek2020TowardsStudies
+106,Mark,James,Unified Methods for Censored Longitudinal Data and Causality,N,vanderLaan2003UnifiedCausality
+107,David,David,Wechsler Intelligence Scale for Children-WISC-IV,N,Wechsler2003WechslerChildren-WISC-IV
+108,Susan,Susan,WISC-IV and WIAT-II profiles in children with high-functioning autism,N,Mayes2008WISC-IVAutism
