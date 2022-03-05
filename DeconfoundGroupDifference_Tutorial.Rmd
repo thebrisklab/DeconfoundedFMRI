@@ -100,6 +100,7 @@ Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)
 Next, we calculate the "true" mean functional connectivity (fconn) within the ASD group and the "true" mean within the TD group, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0]$. We also calculate the effect size used in this example:
 
 ```{r}
+library(effsize)
 (ASD.true = mean(Y[A==1]))
 (TD.true = mean(Y[A==0]))
 
@@ -168,7 +169,6 @@ library(gridExtra)
 library(tidyr)
 library(e1071)
 library(glmnet)
-library(effsize)
 ```
 
 Estimate propensities (gn) from the study sample:

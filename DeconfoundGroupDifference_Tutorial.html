@@ -242,17 +242,34 @@ abline(v=mean(W_c[A==1 &amp; Delta==1]),col=&#39;red&#39;)</code></pre>
 betas_Qbar = c(-0.2,rep(0,p-1),1.4)
 xmat=cbind(W,A)
 Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)</code></pre>
-<p>Next, we calculate the “true” mean functional connectivity (fconn) within the ASD group and the “true” mean within the TD group, i.e., <span class="math inline">\(E[Y(1)|A=1] - E[Y(1)|A=0]\)</span>:</p>
-<pre class="r"><code>(ASD.true = mean(Y[A==1]))</code></pre>
+<p>Next, we calculate the “true” mean functional connectivity (fconn) within the ASD group and the “true” mean within the TD group, i.e., <span class="math inline">\(E[Y(1)|A=1] - E[Y(1)|A=0]\)</span>. We also calculate the effect size used in this example:</p>
+<pre class="r"><code>library(effsize)
+(ASD.true = mean(Y[A==1]))</code></pre>
 <pre><code>## [1] -0.197313</code></pre>
 <pre class="r"><code>(TD.true = mean(Y[A==0]))</code></pre>
 <pre><code>## [1] 0.0001689947</code></pre>
+<pre class="r"><code>cohen.d(Y~factor(A))</code></pre>
+<pre><code>## 
+## Cohen&#39;s d
+## 
+## d estimate: 0.5115891 (medium)
+## 95 percent confidence interval:
+##     lower     upper 
+## 0.4971174 0.5260608</code></pre>
 <p>The “true” population group difference in functional connectivity is then ASD.true - TD.true = <strong>-0.1975</strong>.</p>
-<p>Next, we calculate the naive means in the population sample, <span class="math inline">\(E[Y|A=1,\Delta=1]=E[E[Y|A=1,\Delta=1,W]|A=1,\Delta]\)</span>, resulting from confounding with usability:</p>
+<p>Next, we calculate the naive means in the population sample, <span class="math inline">\(E[Y|A=1,\Delta=1]=E[E[Y|A=1,\Delta=1,W]|A=1,\Delta=1]\)</span>, resulting from confounding with usability:</p>
 <pre class="r"><code>(ASD.naive = mean(Y[A==1 &amp; Delta==1]))</code></pre>
 <pre><code>## [1] -0.03853656</code></pre>
 <pre class="r"><code>(TD.naive = mean(Y[A==0 &amp; Delta==1]))</code></pre>
 <pre><code>## [1] -9.937881e-05</code></pre>
+<pre class="r"><code>cohen.d(Y[A==1 &amp; Delta==1],Y[A==0 &amp; Delta==1])</code></pre>
+<pre><code>## 
+## Cohen&#39;s d
+## 
+## d estimate: -0.1261597 (negligible)
+## 95 percent confidence interval:
+##      lower      upper 
+## -0.1439299 -0.1083895</code></pre>
 <p>The “naive” group difference in functional connectivity is then ASD.naive - TD.naive = <strong>-0.0384</strong>.</p>
 </div>
 <div id="next-create-a-study-sample-with-a-realistic-sample-size." class="section level2">
@@ -293,9 +310,9 @@ my.SL.libs.gn = c(&quot;SL.earth&quot;,&quot;SL.glmnet&quot;,&quot;SL.gam&quot;,
 ## 
 ##                             Risk      Coef
 ## SL.earth_All            662.8761 0.0000000
-## SL.glmnet_All           501.6183 0.8308354
+## SL.glmnet_All           501.6183 0.8308355
 ## SL.gam_All              518.5912 0.0000000
-## SL.glm_All              509.2096 0.1691646
+## SL.glm_All              509.2096 0.1691645
 ## SL.ranger_All           539.4320 0.0000000
 ## SL.step_All             507.2251 0.0000000
 ## SL.step.interaction_All 556.9594 0.0000000
