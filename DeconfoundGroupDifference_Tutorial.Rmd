@@ -97,11 +97,13 @@ Y = xmat%*%betas_Qbar+rnorm(n1,sd=0.2)
 ```
 
 
-Next, we calculate the "true" mean functional connectivity (fconn) within the ASD group and the "true" mean within the TD group, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0]$:
+Next, we calculate the "true" mean functional connectivity (fconn) within the ASD group and the "true" mean within the TD group, i.e., $E[Y(1)|A=1] - E[Y(1)|A=0]$. We also calculate the effect size used in this example:
 
 ```{r}
 (ASD.true = mean(Y[A==1]))
 (TD.true = mean(Y[A==0]))
+
+cohen.d(Y~factor(A))
 ```
 
 The "true" population group difference in functional connectivity is then ASD.true - TD.true = **`r toString(round(ASD.true-TD.true, digits = 4))`**.
@@ -111,6 +113,8 @@ Next, we calculate the naive means in the population sample, $E[Y|A=1,\Delta=1]=
 ```{r}
 (ASD.naive = mean(Y[A==1 & Delta==1]))
 (TD.naive = mean(Y[A==0 & Delta==1]))
+
+cohen.d(Y[A==1 & Delta==1],Y[A==0 & Delta==1])
 ```
 
 The "naive" group difference in functional connectivity is then ASD.naive - TD.naive = **`r toString(round(ASD.naive-TD.naive, digits = 4))`**.
@@ -164,6 +168,7 @@ library(gridExtra)
 library(tidyr)
 library(e1071)
 library(glmnet)
+library(effsize)
 ```
 
 Estimate propensities (gn) from the study sample:
