@@ -1,6 +1,5 @@
 # brisk
 # This code is modified to be used locally or on a cluster. 
-#seedID = 1;
 
 local=FALSE
 # Change this for cluster or local:
@@ -143,71 +142,14 @@ cor(t.values.lm,t.values.naive)
 dat2$ADOS.Comparable.Total[dat2$PrimaryDiagnosis=='None'] = 0
 
 # specify learners for super learner. gn is the propensity model and Qbar is the outcome model,
-# also used for imputing PANESS: 
 my.SL.libs.gn= c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.step","SL.step.interaction","SL.xgboost","SL.mean")
 my.SL.libs.Qbar= c("SL.earth","SL.glmnet","SL.gam","SL.glm","SL.ranger","SL.ridge","SL.step","SL.step.interaction","SL.svm","SL.xgboost","SL.mean")
 
-# Learners that produce issues:
-#   SL.bartMachine: NA
-#   SL.glminteraction: produces a rank-deficient model
-
-# Predict PANESS:
-
-#paness.predictors = c('HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','SES.Family','Race2','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
-paness.predictors = c('PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','SES.Family','Race2','handedness','CurrentlyOnStimulants','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
-
-
-temp.data = dat2[,c('PANESS.TotalOverflowNotAccountingForAge',paness.predictors)]
-completeCasesPredict = complete.cases(temp.data[,2:ncol(temp.data)])
-completeCasesFit = complete.cases(temp.data)
-PANESS=temp.data$PANESS.TotalOverflowNotAccountingForAge[completeCasesFit]
-# WISC.GAI has some missing values where PANESS is missing.
-# These subjects will be dropped
-
-sum(completeCasesPredict) - sum(completeCasesFit) # Imputes values for 19 children
-
-paness.xmat.fit = data.frame(model.matrix(PANESS.TotalOverflowNotAccountingForAge~.,data=temp.data[completeCasesFit,])[,-1])
-temp.data$PANESS.TotalOverflowNotAccountingForAge=0
-paness.xmat.predict = data.frame(model.matrix(PANESS.TotalOverflowNotAccountingForAge~.,data=temp.data[completeCasesPredict,])[,-1])
-
-paness.model = mcSuperLearner(Y = PANESS, X = paness.xmat.fit,SL.library = my.SL.libs.Qbar, family=gaussian(),cvControl = list(V = 10),method = drtmle:::tmp_method.CC_LS) # 10-fold CV
-paness.model
-paness.model$times$everything
-
-#This function produces an error within CV.SuperLearner:
-#method = drtmle:::tmp_method.CC_LS
-
-#set.seed(1, "L'Ecuyer-CMRG")
-#tic = proc.time()
-#paness.model = CV.SuperLearner(Y = PANESS, X = paness.xmat.fit, SL.library = my.SL.libs, family=gaussian(), cvControl = list(V = 10),parallel = 'multicore') # 10-fold CV
-#proc.time() - tic
-#summary(paness.model)
-#plot(paness.model,type='bw')
-
-#appear to be equivalent:
-#set.seed(1, "L'Ecuyer-CMRG")
-#paness.model = mcSuperLearner(Y = PANESS, X = paness.xmat.fit,SL.library = my.SL.libs, family=gaussian(),cvControl = list(V = 10),method = method.CC_LS) # 10-fold CV
-#paness.model
-
-# check fit:
-dat2$Predicted.PANESS[completeCasesPredict]=predict(paness.model,newdata = paness.xmat.predict)[[1]]
-plot(dat2$Predicted.PANESS,dat2$PANESS.TotalOverflowNotAccountingForAge)
-cor(dat2$Predicted.PANESS,dat2$PANESS.TotalOverflowNotAccountingForAge,use='complete.obs')^2 
-
-dat2$iPANESS.TotalOverflowNotAccountingForAge=dat2$PANESS.TotalOverflowNotAccountingForAge
-dat2$iPANESS.TotalOverflowNotAccountingForAge[is.na(dat2$PANESS.TotalOverflowNotAccountingForAge)]=dat2$Predicted.PANESS[is.na(dat2$PANESS.TotalOverflowNotAccountingForAge)]
-
-#check it worked:
-cor(dat2$PANESS.TotalOverflowNotAccountingForAge,dat2$iPANESS.TotalOverflowNotAccountingForAge,use='complete.obs') # should be equal to one, it is, cool!
-sum(is.na(dat2$PANESS.TotalOverflowNotAccountingForAge))
-sum(is.na(dat2$iPANESS.TotalOverflowNotAccountingForAge))
-
-#<---------------------------------
-
 # Dataset for propensity model:
-#gn.variables = c('KKI_criteria','HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','handedness','CurrentlyOnStimulants','iPANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total','ADOS.Comparable.StereotypedBehaviorsRestrictedInterests')
+#gn.variables = c('KKI_criteria','HeadCoil','YearOfScan','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','Sex','handedness','CurrentlyOnStimulants','PANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total','ADOS.Comparable.StereotypedBehaviorsRestrictedInterests')
 
-gn.variables = c('KKI_criteria','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','handedness','CurrentlyOnStimulants','iPANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
+# 7 March 2022: use PANESS not iPANESS
+gn.variables = c('KKI_criteria','PrimaryDiagnosis','ADHD_Secondary','AgeAtScan','handedness','CurrentlyOnStimulants','PANESS.TotalOverflowNotAccountingForAge','WISC.GAI','DuPaulHome.InattentionRaw','DuPaulHome.HyperactivityRaw','ADOS.Comparable.Total')
 
 # these indices will be used in the outcome model and drtmle as well:
 temp.data = dat2[,c(gn.variables)]
@@ -233,7 +175,7 @@ sum(dat2$CompletePredictorCases)
 # fit with glm and gam: eventually, compare AUCs
 glm.prop.model = glm(Delta.KKI~as.matrix(gn.xmat),family=binomial)
 propensities.glm = predict(glm.prop.model,type = 'response')
-gam.prop.model = mgcv::gam(Delta.KKI~PrimaryDiagnosisNone+ADHD_Secondary+handednessMixed+handednessRight+CurrentlyOnStimulants+s(AgeAtScan)+s(DuPaulHome.InattentionRaw)+s(DuPaulHome.HyperactivityRaw)+s(WISC.GAI)+s(iPANESS.TotalOverflowNotAccountingForAge)+s(ADOS.Comparable.Total),method='REML',family=binomial,data=gn.xmat)
+gam.prop.model = mgcv::gam(Delta.KKI~PrimaryDiagnosisNone+ADHD_Secondary+handednessMixed+handednessRight+CurrentlyOnStimulants+s(AgeAtScan)+s(DuPaulHome.InattentionRaw)+s(DuPaulHome.HyperactivityRaw)+s(WISC.GAI)+s(PANESS.TotalOverflowNotAccountingForAge)+s(ADOS.Comparable.Total),method='REML',family=binomial,data=gn.xmat)
 propensities.gam=predict(gam.prop.model,type='response')
 
 
@@ -369,7 +311,7 @@ for (edgeidx in 1:nEdges) {
 }
 
 results.df$seed = seed
-save(file=paste0('./Results/ic30_pc85_glm_gam_drtmle_seed',seed,'.RData'),results.df)
+save(file=paste0('./Results_noimpute/ic30_pc85_glm_gam_drtmle_seed',seed,'.RData'),results.df)
 
 proc.time()-tic
 
